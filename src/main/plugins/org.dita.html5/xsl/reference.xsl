@@ -24,7 +24,9 @@ See the accompanying LICENSE file for applicable license.
     <xsl:call-template name="setaname"/>
     <table cellpadding="4" cellspacing="0"><!--summary=""-->
       <xsl:call-template name="setid"/>
-      <xsl:attribute name="border" select="if (@frame = 'none') then 0 else 1"/>
+      <xsl:if test="not(@frame = 'none')">
+        <xsl:attribute name="border" select="1"/>
+      </xsl:if>
       <xsl:call-template name="commonattributes">
         <xsl:with-param name="default-output-class">
           <xsl:choose>
@@ -300,12 +302,17 @@ See the accompanying LICENSE file for applicable license.
     <xsl:sequence select="1"/>
   </xsl:template>
   
+  <xsl:attribute-set name="linklist-reference">
+    <xsl:attribute name="outputclass">relref</xsl:attribute>
+  </xsl:attribute-set>
+  
   <!-- Reference wrapper for HTML: "Related reference" in <div>. -->
   <xsl:template match="*[contains(@class, ' topic/link ')][@type='reference']" mode="related-links:result-group"
                 name="related-links:result.reference" as="element()">
     <xsl:param name="links"/>
     <xsl:if test="normalize-space(string-join($links, ''))">
-      <linklist class="- topic/linklist " outputclass="relinfo relref">
+      <linklist class="- topic/linklist " xsl:use-attribute-sets="linklist linklist-reference">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related reference'"/>
@@ -316,6 +323,6 @@ See the accompanying LICENSE file for applicable license.
     </xsl:if>
   </xsl:template>
 
-  <xsl:include href="properties.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/properties.xsl"/>
 
 </xsl:stylesheet>

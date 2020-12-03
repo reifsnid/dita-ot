@@ -20,6 +20,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Expand;
 import org.apache.tools.ant.taskdefs.Get;
+import org.dita.dost.log.DITAOTAntLogger;
 import org.dita.dost.platform.*;
 import org.dita.dost.platform.Registry.Dependency;
 import org.dita.dost.util.Configuration;
@@ -34,6 +35,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.DigestInputStream;
@@ -41,7 +43,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class PluginInstallTask extends Task {
 
@@ -54,6 +55,8 @@ public final class PluginInstallTask extends Task {
     private URL pluginUrl;
     private String pluginName;
     private SemVerMatch pluginVersion;
+    private boolean force;
+    private Integrator integrator;
 
     @Override
     public void init() {
@@ -66,6 +69,14 @@ public final class PluginInstallTask extends Task {
             throw new BuildException("Failed to create temporary directory: " + e.getMessage(), e);
         }
         installedPlugins = Plugins.getInstalledPlugins();
+
+        final DITAOTAntLogger logger;
+        logger = new DITAOTAntLogger(getProject());
+        logger.setTarget(getOwningTarget());
+        logger.setTask(this);
+
+        integrator = new Integrator(getProject().getBaseDir());
+        integrator.setLogger(logger);
     }
 
     private void cleanUp() {
@@ -109,14 +120,25 @@ public final class PluginInstallTask extends Task {
                 final File tempPluginDir = install.getValue();
                 final File pluginDir = getPluginDir(name);
                 if (pluginDir.exists()) {
-                    throw new BuildException(new IllegalStateException(String.format("Plug-in %s already installed: %s", name, pluginDir)));
+                    if (force) {
+                        log("Force install to " + pluginDir, Project.MSG_INFO);
+                        integrator.addRemoved(name);
+                        FileUtils.deleteDirectory(pluginDir);
+                    } else {
+                        throw new BuildException(new IllegalStateException(String.format("Plug-in %s already installed: %s", name, pluginDir)));
+                    }
                 }
-                Files.move(tempPluginDir.toPath(), pluginDir.toPath());
+                FileUtils.copyDirectory(tempPluginDir, pluginDir);
             }
         } catch (IOException e) {
             throw new BuildException(e.getMessage(), e);
         } finally {
             cleanUp();
+        }
+        try {
+            integrator.execute();
+        } catch (final Exception e) {
+            throw new BuildException("Integration failed: " + e.getMessage(), e);
         }
     }
 
@@ -189,7 +211,7 @@ public final class PluginInstallTask extends Task {
             }
         }
         if (res == null) {
-            throw new BuildException("Unable to find plugin " + pluginFile);
+            throw new BuildException("Unable to find plugin " + pluginFile + " in any configured registry.");
         }
 
         Set<Registry> results = new HashSet<>();
@@ -283,8 +305,14 @@ public final class PluginInstallTask extends Task {
         }
     }
 
+    // Setters
+
     public void setPluginFile(final String pluginFile) {
-        this.pluginFile = Paths.get(pluginFile);
+        try {
+            this.pluginFile = Paths.get(pluginFile);
+        } catch (InvalidPathException e) {
+            // Ignore
+        }
         try {
             final URI uri = new URI(pluginFile);
             if (uri.isAbsolute()) {
@@ -303,4 +331,7 @@ public final class PluginInstallTask extends Task {
         }
     }
 
+    public void setForce(final boolean force) {
+        this.force = force;
+    }
 }

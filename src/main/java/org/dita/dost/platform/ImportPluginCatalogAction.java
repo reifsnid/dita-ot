@@ -7,7 +7,6 @@
  */
 package org.dita.dost.platform;
 
-import static javax.xml.XMLConstants.NULL_NS_URI;
 import static org.dita.dost.util.Constants.*;
 
 import java.io.File;
@@ -35,7 +34,7 @@ final class ImportPluginCatalogAction extends ImportAction {
 
     @Override
     public void getResult(final ContentHandler buf) throws SAXException {
-        // plugin properties
+        final File basePluginDir = featureTable.get("org.dita.base").getPluginDir();
         for (final Entry<String, Features> e: featureTable.entrySet()) {
             final Features f = e.getValue();
             final String name = PLUGIN_URI_SCHEME + ":" + e.getKey() + ":";
@@ -47,7 +46,7 @@ final class ImportPluginCatalogAction extends ImportAction {
             } else if (f.getPluginDir().getAbsolutePath().startsWith(f.getDitaDir().getAbsolutePath())) {
                 location.append(
                         FileUtils.getRelativeUnixPath(
-                                new File(f.getDitaDir(), "plugin.xml").toURI().toString(),
+                                new File(basePluginDir, "plugin.xml").toURI().toString(),
                                 f.getPluginDir().toURI().toString()));
             } else {
                 location.append(f.getPluginDir().toURI().toString());
@@ -55,11 +54,11 @@ final class ImportPluginCatalogAction extends ImportAction {
             if (location.length() > 0 && !location.substring(location.length() - 1).equals(UNIX_SEPARATOR)) {
                 location.append(UNIX_SEPARATOR);
             }
-            buf.startElement(NULL_NS_URI, "rewriteURI", "rewriteURI", new AttributesBuilder()
+            buf.startElement(OASIS_CATALOG_NAMESPACE, "rewriteURI", "rewriteURI", new AttributesBuilder()
                 .add("uriStartString", name)
                 .add("rewritePrefix", location.toString())
                 .build());
-            buf.endElement(NULL_NS_URI, "rewriteURI", "rewriteURI");
+            buf.endElement(OASIS_CATALOG_NAMESPACE, "rewriteURI", "rewriteURI");
         }
     }
 

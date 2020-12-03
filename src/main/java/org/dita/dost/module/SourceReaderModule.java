@@ -7,17 +7,19 @@
  */
 package org.dita.dost.module;
 
+import net.sf.saxon.s9api.Processor;
 import org.apache.xerces.xni.grammars.XMLGrammarPool;
+import org.apache.xml.resolver.tools.CatalogResolver;
 import org.dita.dost.reader.GrammarPoolManager;
 import org.dita.dost.util.CatalogUtils;
 import org.dita.dost.util.XMLUtils;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXNotRecognizedException;
-import org.xml.sax.SAXNotSupportedException;
-import org.xml.sax.XMLReader;
+import org.dita.dost.writer.AbstractXMLFilter;
+import org.xml.sax.*;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import java.io.File;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.emptyMap;
@@ -45,10 +47,7 @@ abstract class SourceReaderModule extends AbstractPipelineModuleImpl {
      * Use grammar pool cache
      */
     boolean gramcache = true;
-    /**
-     * Absolute DITA-OT base path.
-     */
-    File ditaDir;
+    Processor processor;
 
     /**
      * Get reader for input format
@@ -123,8 +122,28 @@ abstract class SourceReaderModule extends AbstractPipelineModuleImpl {
             }
         }
 
-        CatalogUtils.setDitaDir(ditaDir);
-        reader.setEntityResolver(CatalogUtils.getCatalogResolver());
+        final CatalogResolver catalogResolver = CatalogUtils.getCatalogResolver();
+        reader.setEntityResolver(catalogResolver);
+
+        processor = xmlUtils.getProcessor();
     }
 
+    /**
+     * Get pipe line filters
+     *
+     * @param fileToParse absolute URI to current file being processed
+     */
+    List<XMLFilter> getProcessingPipe(final URI fileToParse) {
+        final List<XMLFilter> pipe = new ArrayList<>();
+
+        for (XmlFilterModule.FilterPair pair : filters) {
+            final AbstractXMLFilter filter = pair.newInstance();
+            filter.setLogger(logger);
+            filter.setJob(job);
+            filter.setCurrentFile(fileToParse);
+            pipe.add(filter);
+        }
+
+        return pipe;
+    }
 }

@@ -157,9 +157,13 @@ See the accompanying LICENSE file for applicable license.
     </xsl:if>
   </xsl:template>
 
+  <xsl:attribute-set name="navigation">
+    <xsl:attribute name="role">navigation</xsl:attribute>
+  </xsl:attribute-set>
+
   <!--main template for setting up all links after the body - applied to the related-links container-->
   <xsl:template match="*[contains(@class, ' topic/related-links ')]" name="topic.related-links">
-    <nav role="navigation">
+    <nav xsl:use-attribute-sets="navigation">
       <xsl:call-template name="commonattributes"/>
       <xsl:if test="$include.roles = ('child', 'descendant')">
         <xsl:call-template name="ul-child-links"/>
@@ -269,12 +273,17 @@ Each child is indented, the linktext is bold, and the shortdesc appears in norma
     </xsl:for-each>
   </xsl:template>
 
+  
+  <xsl:attribute-set name="linklist">
+    <xsl:attribute name="outputclass">relinfo</xsl:attribute>
+  </xsl:attribute-set>
   <!-- Override no-name group wrapper template for HTML: output "Related Information" in a <linklist>. -->
   <xsl:template match="*[contains(@class, ' topic/link ')]" mode="related-links:result-group" name="related-links:group-result."
                 as="element()">
     <xsl:param name="links" as="node()*"/>
     <xsl:if test="exists($links)">
-      <linklist class="- topic/linklist " outputclass="relinfo">
+      <linklist class="- topic/linklist " xsl:use-attribute-sets="linklist">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related information'"/>
@@ -574,6 +583,13 @@ Each child is indented, the linktext is bold, and the shortdesc appears in norma
   </xsl:template>
 
   <!--linklists-->
+  <xsl:template match="*[contains(@class, ' topic/linklist ')]/@xml:lang" priority="100">
+    <xsl:variable name="ancestorLang" select="parent::*/ancestor::*[@xml:lang][1]/@xml:lang" as="attribute()?"/>
+    <xsl:if test="(empty($ancestorLang) and .!=$DEFAULTLANG) or
+                  .!=$ancestorLang">
+      <xsl:next-match/>
+    </xsl:if>
+  </xsl:template>
   <xsl:template match="*[contains(@class, ' topic/linklist ')]" name="topic.linklist">
     <xsl:choose>
       <!-- if this is a first-level linklist with no child links in it, put it in a div (flush left)-->
@@ -720,7 +736,7 @@ Each child is indented, the linktext is bold, and the shortdesc appears in norma
 
   <xsl:template match="*" mode="add-link-target-attribute">
     <xsl:if test="@scope = 'external' or @type = 'external' or ((lower-case(@format) = 'pdf') and not(@scope = 'local'))">
-      <xsl:attribute name="target">_blank</xsl:attribute>
+      <xsl:apply-templates select="." mode="external-link"/>
     </xsl:if>
   </xsl:template>
 

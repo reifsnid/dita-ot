@@ -46,9 +46,6 @@ See the accompanying LICENSE file for applicable license.
   <xsl:param name="figurelink.style" select="'NUMTITLE'"/>
   <xsl:param name="tablelink.style" select="'NUMTITLE'"/>
 
-  <!-- Deprecated since 2.3 -->
-  <xsl:variable name="msgprefix">DOTX</xsl:variable>
-  
     <xsl:key name="key_anchor" match="*[@id][not(contains(@class,' map/topicref '))]" use="@id"/>
 <!--[not(contains(@class,' map/topicref '))]-->
     <xsl:template name="insertLinkShortDesc">
@@ -263,7 +260,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:template match="*[contains(@class,' topic/xref ')]" name="topic.xref">
 
     <xsl:variable name="destination" select="opentopic-func:getDestinationId(@href)"/>
-    <xsl:variable name="element" select="key('key_anchor',$destination, $root)[1]"/>
+    <xsl:variable name="element" select="key('key_anchor',$destination, $root)[1]" as="element()?"/>
 
     <xsl:variable name="referenceTitle" as="node()*">
       <xsl:apply-templates select="." mode="insertReferenceTitle">
@@ -330,7 +327,10 @@ See the accompanying LICENSE file for applicable license.
         <xsl:variable name="href-fragment" select="substring-after(@href, '#')"/>
         <xsl:variable name="elemId" select="substring-after($href-fragment, '/')"/>
         <xsl:variable name="topicId" select="substring-before($href-fragment, '/')"/>
-        <xsl:variable name="footnote-target" select="key('fnById', $elemId)[ancestor::*[contains(@class, ' topic/topic ')][1]/@id = $topicId]"/>
+        <xsl:variable name="footnote-target" 
+          select="(key('fnById', $elemId)[ancestor::*[contains(@class, ' topic/topic ')][1]/@id = $topicId])[1]" 
+          as="element()?"
+        />
         <xsl:apply-templates select="$footnote-target" mode="footnote-callout"/>
     </xsl:template>
 
@@ -502,7 +502,7 @@ See the accompanying LICENSE file for applicable license.
 
   <xsl:template match="*[contains(@class,' topic/link ')][not(empty(@href) or @href='')]" mode="processLink">
     <xsl:variable name="destination" select="opentopic-func:getDestinationId(@href)"/>
-    <xsl:variable name="element" select="key('key_anchor',$destination, $root)[1]"/>
+    <xsl:variable name="element" select="key('key_anchor',$destination, $root)[1]" as="element()?"/>
 
     <xsl:variable name="referenceTitle" as="node()*">
         <xsl:apply-templates select="." mode="insertReferenceTitle">
@@ -724,6 +724,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="links" as="node()*"/>
     <xsl:if test="exists($links)">
       <linklist class="- topic/linklist " outputclass="relinfo">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related information'"/>
@@ -754,6 +755,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="links" as="node()*"/>
     <xsl:if test="normalize-space(string-join($links, ''))">
       <linklist class="- topic/linklist " outputclass="relinfo relconcepts">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related concepts'"/>
@@ -784,6 +786,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="links"/>
     <xsl:if test="normalize-space(string-join($links, ''))">
       <linklist class="- topic/linklist " outputclass="relinfo relref">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related reference'"/>
@@ -814,6 +817,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="links" as="node()*"/>
     <xsl:if test="normalize-space(string-join($links, ''))">
       <linklist class="- topic/linklist " outputclass="relinfo reltasks">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related tasks'"/>

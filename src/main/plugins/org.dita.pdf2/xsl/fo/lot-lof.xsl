@@ -13,34 +13,39 @@ See the accompanying LICENSE file for applicable license.
     xmlns:fo="http://www.w3.org/1999/XSL/Format"
     xmlns:dita2xslfo="http://dita-ot.sourceforge.net/ns/200910/dita2xslfo"
     xmlns:opentopic="http://www.idiominc.com/opentopic"
+    xmlns:dita-ot="http://dita-ot.sourceforge.net/ns/201007/dita-ot"
     xmlns:opentopic-index="http://www.idiominc.com/opentopic/index"
     xmlns:ot-placeholder="http://suite-sol.com/namespaces/ot-placeholder"
-    exclude-result-prefixes="opentopic opentopic-index dita2xslfo ot-placeholder"
+    exclude-result-prefixes="dita-ot opentopic opentopic-index dita2xslfo ot-placeholder"
     version="2.0">
   
   <xsl:variable name="tableset">
     <xsl:for-each select="//*[contains (@class, ' topic/table ')][*[contains(@class, ' topic/title ' )]]">
-      <xsl:copy>
-        <xsl:copy-of select="@*"/>
-        <xsl:if test="not(@id)">
-          <xsl:attribute name="id">
-            <xsl:call-template name="get-id"/>
-          </xsl:attribute>
-        </xsl:if>
-      </xsl:copy>
+      <xsl:if test="dita-ot:notExcludedByDraftElement(.)">
+        <xsl:copy>
+          <xsl:copy-of select="@*"/>
+          <xsl:if test="not(@id)">
+            <xsl:attribute name="id">
+              <xsl:call-template name="get-id"/>
+            </xsl:attribute>
+          </xsl:if>
+        </xsl:copy>
+      </xsl:if>
     </xsl:for-each>
   </xsl:variable>
   
   <xsl:variable name="figureset">
     <xsl:for-each select="//*[contains (@class, ' topic/fig ')][*[contains(@class, ' topic/title ' )]]">
-      <xsl:copy>
-        <xsl:copy-of select="@*"/>
-        <xsl:if test="not(@id)">
-          <xsl:attribute name="id">
-            <xsl:call-template name="get-id"/>
-          </xsl:attribute>
-        </xsl:if>
-      </xsl:copy>
+      <xsl:if test="dita-ot:notExcludedByDraftElement(.)">
+        <xsl:copy>
+          <xsl:copy-of select="@*"/>
+          <xsl:if test="not(@id)">
+            <xsl:attribute name="id">
+              <xsl:call-template name="get-id"/>
+            </xsl:attribute>
+          </xsl:if>
+        </xsl:copy>
+      </xsl:if>
     </xsl:for-each>
   </xsl:variable>
   
@@ -56,7 +61,10 @@ See the accompanying LICENSE file for applicable license.
           <fo:block start-indent="0in">
             <xsl:call-template name="createLOTHeader"/>
             
-            <xsl:apply-templates select="//*[contains (@class, ' topic/table ')][child::*[contains(@class, ' topic/title ' )]]" mode="list.of.tables"/>
+            <xsl:apply-templates select="//*[contains (@class, ' topic/table ')]
+                                            [child::*[contains(@class, ' topic/title ' )]]
+                                            [dita-ot:notExcludedByDraftElement(.)]"
+                                 mode="list.of.tables"/>
           </fo:block>
         </fo:flow>
         
@@ -87,6 +95,10 @@ See the accompanying LICENSE file for applicable license.
           <xsl:attribute name="internal-destination">
             <xsl:call-template name="get-id"/>
           </xsl:attribute>
+
+          <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]/revprop[@changebar]" mode="changebar">
+            <xsl:with-param name="changebar-id" select="concat(dita-ot:generate-changebar-id(.),'-toc')"/>
+          </xsl:apply-templates>
           
           <fo:inline xsl:use-attribute-sets="__lotf__title">
             <xsl:call-template name="getVariable">
@@ -116,6 +128,10 @@ See the accompanying LICENSE file for applicable license.
               </xsl:attribute>
             </fo:page-number-citation>
           </fo:inline>
+
+          <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-endprop ')]/revprop[@changebar]" mode="changebar">
+            <xsl:with-param name="changebar-id" select="concat(dita-ot:generate-changebar-id(.),'-toc')"/>
+          </xsl:apply-templates>
           
         </fo:basic-link>
       </fo:block>
@@ -134,7 +150,10 @@ See the accompanying LICENSE file for applicable license.
             <fo:block start-indent="0in">
               <xsl:call-template name="createLOFHeader"/>
 
-              <xsl:apply-templates select="//*[contains (@class, ' topic/fig ')][child::*[contains(@class, ' topic/title ' )]]" mode="list.of.figures"/>
+              <xsl:apply-templates select="//*[contains (@class, ' topic/fig ')]
+                                              [child::*[contains(@class, ' topic/title ' )]]
+                                              [dita-ot:notExcludedByDraftElement(.)]"
+                                   mode="list.of.figures"/>
             </fo:block>
           </fo:flow>
 
@@ -165,6 +184,10 @@ See the accompanying LICENSE file for applicable license.
           <xsl:attribute name="internal-destination">
             <xsl:call-template name="get-id"/>
           </xsl:attribute>
+
+          <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]/revprop[@changebar]" mode="changebar">
+            <xsl:with-param name="changebar-id" select="concat(dita-ot:generate-changebar-id(.),'-toc')"/>
+          </xsl:apply-templates>
           
           <fo:inline xsl:use-attribute-sets="__lotf__title">
             <xsl:call-template name="getVariable">
@@ -194,6 +217,10 @@ See the accompanying LICENSE file for applicable license.
               </xsl:attribute>
             </fo:page-number-citation>
           </fo:inline>
+
+          <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-endprop ')]/revprop[@changebar]" mode="changebar">
+            <xsl:with-param name="changebar-id" select="concat(dita-ot:generate-changebar-id(.),'-toc')"/>
+          </xsl:apply-templates>
           
         </fo:basic-link>
       </fo:block>

@@ -19,6 +19,15 @@ import static org.junit.Assert.assertTrue;
 
 public class IntegrationTestHtml5 extends AbstractIntegrationTest {
 
+    public AbstractIntegrationTest builder() {
+        return new IntegrationTestHtml5();
+    }
+
+    @Override
+    Transtype getTranstype(Transtype transtype) {
+        return transtype;
+    }
+
     @Test
     public void html5_cssNoCopy() throws Throwable {
         final File srcDir = new File(resourceDir, "html5_css" + File.separator + "src");
@@ -83,6 +92,18 @@ public class IntegrationTestHtml5 extends AbstractIntegrationTest {
                 .input(Paths.get("topic.dita"))
                 .put("args.css", "custom.css")
                 .put("args.csspath", "https://example.com/styles")
+                .test();
+    }
+
+    @Test
+    public void html5_ditaval_passthrough_all() throws Throwable {
+        final File srcDir = new File(resourceDir, "html5_ditaval" + File.separator + "src");
+        builder().name("html5_ditaval")
+                .transtype(HTML5)
+                .input(Paths.get("all.ditamap"))
+                .put("validate", "no")
+                .put("dita.input.valfile", new File(srcDir, "all.ditaval").getAbsolutePath())
+                .warnCount(1)
                 .test();
     }
 

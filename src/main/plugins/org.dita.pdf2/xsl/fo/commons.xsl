@@ -44,8 +44,8 @@ See the accompanying LICENSE file for applicable license.
     version="2.0">
 
     <!-- FIXME these imports should be moved to shell -->
-    <xsl:import href="topic.xsl"/>
-    <xsl:import href="concept.xsl"/>
+    <xsl:import href="plugin:org.dita.pdf2:xsl/fo/topic.xsl"/>
+    <xsl:import href="plugin:org.dita.pdf2:xsl/fo/concept.xsl"/>
 
     <xsl:key name="id" match="*[@id]" use="@id"/>
     <xsl:key name="map-id"
@@ -74,11 +74,9 @@ See the accompanying LICENSE file for applicable license.
     <xsl:key name="enumerableByClass"
              match="*[contains(@class, ' topic/fig ')][*[contains(@class, ' topic/title ')]] |
                     *[contains(@class, ' topic/table ')][*[contains(@class, ' topic/title ')]] |
+                    *[contains(@class, ' topic/simpletable ')][*[contains(@class, ' topic/title ')]] |
                     *[contains(@class,' topic/fn ') and empty(@callout)]"
               use="tokenize(@class, ' ')"/>
-
-    <!-- Deprecated since 2.3 -->
-    <xsl:variable name="msgprefix" select="'PDFX'"/>
 
     <xsl:variable name="id.toc" select="'ID_TOC_00-0F-EA-40-0D-4D'"/>
     <xsl:variable name="id.index" select="'ID_INDEX_00-0F-EA-40-0D-4D'"/>
@@ -112,7 +110,10 @@ See the accompanying LICENSE file for applicable license.
     <xsl:template match="*" mode="commonTopicProcessing">
       <xsl:if test="empty(ancestor::*[contains(@class, ' topic/topic ')])">
         <fo:marker marker-class-name="current-topic-number">
-          <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+          <xsl:variable name="topicref" 
+            select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')]/@id)[1]" 
+            as="element()?"
+          />
           <xsl:for-each select="$topicref">
             <xsl:apply-templates select="." mode="topicTitleNumber"/>
           </xsl:for-each>
@@ -123,9 +124,8 @@ See the accompanying LICENSE file for applicable license.
         <xsl:apply-templates select="." mode="customTopicMarker"/>
         <xsl:apply-templates select="*[contains(@class, ' topic/title ')]"/>
         <xsl:apply-templates select="*[contains(@class, ' topic/prolog ')]"/>
-        <xsl:apply-templates select="*[not(contains(@class, ' topic/title ')) and
-                                       not(contains(@class, ' topic/prolog ')) and
-                                       not(contains(@class, ' topic/topic '))]"/>
+          <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+              contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
         <!--xsl:apply-templates select="." mode="buildRelationships"/-->
         <xsl:apply-templates select="*[contains(@class,' topic/topic ')]"/>
         <xsl:apply-templates select="." mode="topicEpilog"/>
@@ -211,10 +211,12 @@ See the accompanying LICENSE file for applicable license.
 
   <xsl:template match="*" mode="insertTopicHeaderMarker">
     <xsl:param name="marker-class-name" as="xs:string">current-header</xsl:param>
-
-    <fo:marker marker-class-name="{$marker-class-name}">
-      <xsl:apply-templates select="." mode="insertTopicHeaderMarkerContents"/>
-    </fo:marker>
+      <xsl:variable name="headerContent" as="node()*">
+        <xsl:apply-templates select="." mode="insertTopicHeaderMarkerContents"/>
+      </xsl:variable>
+      <fo:marker marker-class-name="{$marker-class-name}">
+        <xsl:apply-templates select="$headerContent" mode="dropCopiedIds"/>
+      </fo:marker>
   </xsl:template>
 
   <xsl:template match="*[contains(@class, ' topic/topic ')]" mode="insertTopicHeaderMarkerContents">
@@ -258,7 +260,9 @@ See the accompanying LICENSE file for applicable license.
             </xsl:variable>
             <xsl:if test="$level eq 1">
                 <fo:marker marker-class-name="current-topic-number">
-                  <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+                  <xsl:variable name="topicref" 
+                    select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)[1]" 
+                    as="element()?"/>
                   <xsl:for-each select="$topicref">
                     <xsl:apply-templates select="." mode="topicTitleNumber"/>
                   </xsl:for-each>
@@ -276,6 +280,7 @@ See the accompanying LICENSE file for applicable license.
             <fo:block xsl:use-attribute-sets="topic.title">
                 <xsl:apply-templates select="." mode="customTopicAnchor"/>
                 <xsl:call-template name="pullPrologIndexTerms"/>
+                <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
                 <xsl:for-each select="*[contains(@class,' topic/title ')]">
                     <xsl:apply-templates select="." mode="getTitle"/>
                 </xsl:for-each>
@@ -283,8 +288,8 @@ See the accompanying LICENSE file for applicable license.
 
             <xsl:choose>
               <xsl:when test="$chapterLayout='BASIC'">
-                  <xsl:apply-templates select="*[not(contains(@class, ' topic/topic ') or contains(@class, ' topic/title ') or
-                                                     contains(@class, ' topic/prolog '))]"/>
+                  <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+                      contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
                   <!--xsl:apply-templates select="." mode="buildRelationships"/-->
               </xsl:when>
               <xsl:otherwise>
@@ -330,7 +335,9 @@ See the accompanying LICENSE file for applicable license.
             </xsl:variable>
             <xsl:if test="$level eq 1">
                 <fo:marker marker-class-name="current-topic-number">
-                    <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+                  <xsl:variable name="topicref" 
+                    select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)[1]" 
+                    as="element()?"/>
                     <xsl:for-each select="$topicref">
                       <xsl:apply-templates select="." mode="topicTitleNumber"/>
                     </xsl:for-each>
@@ -347,6 +354,7 @@ See the accompanying LICENSE file for applicable license.
 
             <fo:block xsl:use-attribute-sets="topic.title">
                 <xsl:apply-templates select="." mode="customTopicAnchor"/>
+                <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
                 <xsl:call-template name="pullPrologIndexTerms"/>
                 <xsl:for-each select="*[contains(@class,' topic/title ')]">
                     <xsl:apply-templates select="." mode="getTitle"/>
@@ -355,8 +363,8 @@ See the accompanying LICENSE file for applicable license.
 
             <xsl:choose>
               <xsl:when test="$appendixLayout='BASIC'">
-                  <xsl:apply-templates select="*[not(contains(@class, ' topic/topic ') or contains(@class, ' topic/title ') or
-                                                     contains(@class, ' topic/prolog '))]"/>
+                  <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+                      contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
                   <!--xsl:apply-templates select="." mode="buildRelationships"/-->
               </xsl:when>
               <xsl:otherwise>
@@ -401,7 +409,10 @@ See the accompanying LICENSE file for applicable license.
       <xsl:call-template name="commonattributes"/>
       <xsl:if test="empty(ancestor::*[contains(@class, ' topic/topic ')])">
         <fo:marker marker-class-name="current-topic-number">
-          <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+          <xsl:variable name="topicref" 
+            select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)[1]" 
+            as="element()?"
+          />
           <xsl:for-each select="$topicref">
             <xsl:apply-templates select="." mode="topicTitleNumber"/>
           </xsl:for-each>
@@ -419,6 +430,7 @@ See the accompanying LICENSE file for applicable license.
       <fo:block xsl:use-attribute-sets="topic.title">
         <xsl:apply-templates select="." mode="customTopicAnchor"/>
         <xsl:call-template name="pullPrologIndexTerms"/>
+        <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
         <xsl:for-each select="*[contains(@class,' topic/title ')]">
           <xsl:apply-templates select="." mode="getTitle"/>
         </xsl:for-each>
@@ -426,8 +438,8 @@ See the accompanying LICENSE file for applicable license.
           
       <xsl:choose>
         <xsl:when test="$appendicesLayout='BASIC'">
-          <xsl:apply-templates select="*[not(contains(@class, ' topic/topic ') or contains(@class, ' topic/title ') or
-                                             contains(@class, ' topic/prolog '))]"/>
+          <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+                contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
           <!--xsl:apply-templates select="." mode="buildRelationships"/-->
         </xsl:when>
         <xsl:otherwise>
@@ -479,7 +491,10 @@ See the accompanying LICENSE file for applicable license.
             <xsl:call-template name="commonattributes"/>
             <xsl:if test="empty(ancestor::*[contains(@class, ' topic/topic ')])">
                 <fo:marker marker-class-name="current-topic-number">
-                  <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+                  <xsl:variable name="topicref" 
+                    select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)[1]" 
+                    as="element()?"
+                  />
                   <xsl:for-each select="$topicref">
                     <xsl:apply-templates select="." mode="topicTitleNumber"/>
                   </xsl:for-each>
@@ -497,6 +512,7 @@ See the accompanying LICENSE file for applicable license.
             <fo:block xsl:use-attribute-sets="topic.title">
                 <xsl:apply-templates select="." mode="customTopicAnchor"/>
                 <xsl:call-template name="pullPrologIndexTerms"/>
+                <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
                 <xsl:for-each select="*[contains(@class,' topic/title ')]">
                     <xsl:apply-templates select="." mode="getTitle"/>
                 </xsl:for-each>
@@ -504,8 +520,8 @@ See the accompanying LICENSE file for applicable license.
 
             <xsl:choose>
               <xsl:when test="$partLayout='BASIC'">
-                  <xsl:apply-templates select="*[not(contains(@class, ' topic/topic ') or contains(@class, ' topic/title ') or
-                                                     contains(@class, ' topic/prolog '))]"/>
+                  <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+                      contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
                   <!--xsl:apply-templates select="." mode="buildRelationships"/-->
               </xsl:when>
               <xsl:otherwise>
@@ -544,7 +560,10 @@ See the accompanying LICENSE file for applicable license.
                     <xsl:call-template name="commonattributes"/>
                     <xsl:if test="empty(ancestor::*[contains(@class, ' topic/topic ')])">
                         <fo:marker marker-class-name="current-topic-number">
-                          <xsl:variable name="topicref" select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)"/>
+                          <xsl:variable name="topicref" 
+                            select="key('map-id', ancestor-or-self::*[contains(@class, ' topic/topic ')][1]/@id)[1]"
+                            as="element()?"
+                          />
                           <xsl:for-each select="$topicref">
                             <xsl:apply-templates select="." mode="topicTitleNumber"/>
                           </xsl:for-each>
@@ -562,6 +581,7 @@ See the accompanying LICENSE file for applicable license.
                     <fo:block xsl:use-attribute-sets="topic.title">
                         <xsl:apply-templates select="." mode="customTopicAnchor"/>
                         <xsl:call-template name="pullPrologIndexTerms"/>
+                        <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
                         <xsl:for-each select="*[contains(@class,' topic/title ')]">
                             <xsl:apply-templates select="." mode="getTitle"/>
                         </xsl:for-each>
@@ -569,8 +589,8 @@ See the accompanying LICENSE file for applicable license.
 
                     <xsl:choose>
                       <xsl:when test="$noticesLayout='BASIC'">
-                          <xsl:apply-templates select="*[not(contains(@class, ' topic/topic ') or contains(@class, ' topic/title ') or
-                                                             contains(@class, ' topic/prolog '))]"/>
+                          <xsl:apply-templates select="* except(*[contains(@class, ' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop ') or
+                              contains(@class, ' topic/prolog ') or contains(@class, ' topic/topic ')])"/>
                           <!--xsl:apply-templates select="." mode="buildRelationships"/-->
                       </xsl:when>
                       <xsl:otherwise>
@@ -623,11 +643,12 @@ See the accompanying LICENSE file for applicable license.
                          </xsl:attribute>
                          <xsl:apply-templates select="." mode="customTopicAnchor"/>
                          <xsl:call-template name="pullPrologIndexTerms"/>
+                         <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]"/>
                          <xsl:for-each select="child::*[contains(@class,' topic/title ')]">
                              <xsl:apply-templates select="." mode="getTitle"/>
                          </xsl:for-each>
                      </fo:block>
-                     <xsl:apply-templates select="*[not(contains(@class,' topic/title '))]"/>
+                     <xsl:apply-templates select="*[not(contains(@class,' topic/title ') or contains(@class,' ditaot-d/ditaval-startprop '))]"/>
                  </fo:block>
    </xsl:template>
 
@@ -779,6 +800,7 @@ See the accompanying LICENSE file for applicable license.
                               </fo:block>
                             </xsl:if>
                             <xsl:apply-templates select="*[contains(@class,' topic/body ')]/*"/>
+                            <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-endprop ')]"/>
 
                             <xsl:if test="*[contains(@class,' topic/related-links ')]//
                                           *[contains(@class,' topic/link ')][not(@role) or @role!='child']">
@@ -819,8 +841,8 @@ See the accompanying LICENSE file for applicable license.
       <xsl:variable name="foundTopicType" as="xs:string?">
         <xsl:variable name="topic" select="ancestor-or-self::*[contains(@class, ' topic/topic ')][1]"/>
         <xsl:variable name="id" select="$topic/@id"/>
-        <xsl:variable name="mapTopics" select="key('map-id', $id)"/>
-        <xsl:apply-templates select="$mapTopics[1]" mode="determineTopicType"/>
+        <xsl:variable name="mapTopics" select="key('map-id', $id)[1]" as="element()?"/>
+        <xsl:apply-templates select="$mapTopics" mode="determineTopicType"/>
       </xsl:variable>
       <xsl:choose>
         <xsl:when test="exists($foundTopicType) and $foundTopicType != ''">
@@ -890,6 +912,22 @@ See the accompanying LICENSE file for applicable license.
         <xsl:call-template name="determineTopicType"/>
       </xsl:variable>
       <xsl:sequence select="$topicType"/>
+    </xsl:function>
+
+    <xsl:function name="dita-ot:notExcludedByDraftElement" as="xs:boolean">
+      <xsl:param name="ctx" as="element()"/>
+      <xsl:choose>
+        <xsl:when test="$publishRequiredCleanup='yes' or $DRAFT='yes'">
+            <xsl:sequence select="true()"/>
+        </xsl:when>
+        <xsl:when test="$ctx/ancestor::*[contains(@class,' topic/draft-comment ') or 
+                                         contains(@class,' topic/required-cleanup ')]">
+            <xsl:sequence select="false()"/>
+        </xsl:when>
+        <xsl:otherwise>
+            <xsl:sequence select="true()"/>
+        </xsl:otherwise>
+      </xsl:choose>
     </xsl:function>
 
 </xsl:stylesheet>

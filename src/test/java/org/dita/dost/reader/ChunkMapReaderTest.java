@@ -10,7 +10,9 @@ package org.dita.dost.reader;
 import com.google.common.collect.ImmutableMap;
 import org.dita.dost.TestUtils;
 import org.dita.dost.TestUtils.CachingLogger;
+import org.dita.dost.store.StreamStore;
 import org.dita.dost.util.Job;
+import org.dita.dost.util.XMLUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,8 +48,8 @@ public class ChunkMapReaderTest {
     }
 
     @Test
-    public void testRead() throws IOException {
-        final Job job = new Job(tempDir);
+    public void testRead() throws Exception {
+        final Job job = new Job(tempDir, new StreamStore(tempDir, new XMLUtils()));
         job.setInputDir(srcDir.toURI());
         job.setInputMap(URI.create("maps/gen.ditamap"));
 
@@ -77,7 +79,7 @@ public class ChunkMapReaderTest {
     }
 
     @Test
-    public void testMissingSource() throws IOException, URISyntaxException {
+    public void testMissingSource() throws Exception {
         final Job job = createJob("missing.ditamap", "2.dita");
 
         final ChunkMapReader mapReader = new ChunkMapReader();
@@ -96,7 +98,7 @@ public class ChunkMapReaderTest {
     }
 
     @Test
-    public void testChunkFullMap() throws IOException {
+    public void testChunkFullMap() throws Exception {
         final Job job = createJob("map.ditamap", "1.dita", "2.dita", "3.dita");
 
         final ChunkMapReader mapReader = new ChunkMapReader();
@@ -123,7 +125,7 @@ public class ChunkMapReaderTest {
     }
 
     @Test
-    public void testExistingGeneratedFile() throws IOException, URISyntaxException {
+    public void testExistingGeneratedFile() throws Exception {
         final Job job = createJob("conflict.ditamap", "2.dita", "Chunk0.dita");
 
         final ChunkMapReader mapReader = new ChunkMapReader();
@@ -136,8 +138,7 @@ public class ChunkMapReaderTest {
         assertEquals(ImmutableMap.<URI, URI>builder()
                         .put(prefixTemp("Chunk0.dita"), prefixTemp("Chunk0.dita"))
                         .put(prefixTemp("Chunk2.dita"), prefixTemp("Chunk2.dita"))
-                        .put(prefixTemp("Chunk1.dita"), prefixTemp("Chunk2.dita#Chunk1"))
-                        .put(prefixTemp("Chunk1.dita#Chunk1"), prefixTemp("Chunk2.dita#Chunk1"))
+                        .put(prefixTemp("Chunk1.dita"), prefixTemp("Chunk2.dita"))
                         .put(prefixTemp("2.dita"), prefixTemp("Chunk2.dita#topic_qft_qwn_hv"))
                         .put(prefixTemp("2.dita#topic_qft_qwn_hv"), prefixTemp("Chunk2.dita#topic_qft_qwn_hv"))
                         .build(),
@@ -151,7 +152,7 @@ public class ChunkMapReaderTest {
     }
 
     private Job createJob(final String map, final String... topics) throws IOException {
-        final Job job = new Job(tempDir);
+        final Job job = new Job(tempDir, new StreamStore(tempDir, new XMLUtils()));
         job.setInputDir(srcDir.toURI());
         job.setInputMap(URI.create(map));
 

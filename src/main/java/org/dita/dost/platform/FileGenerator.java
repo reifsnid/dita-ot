@@ -8,6 +8,7 @@
  */
 package org.dita.dost.platform;
 
+import net.sf.saxon.trans.UncheckedXPathException;
 import org.dita.dost.log.DITAOTLogger;
 import org.dita.dost.util.XMLUtils.AttributesBuilder;
 import org.xml.sax.Attributes;
@@ -17,16 +18,13 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.XMLFilterImpl;
 
 import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.Result;
-import javax.xml.transform.Source;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.*;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.util.*;
-
-import static java.util.Arrays.asList;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Generate outputfile with templates.
@@ -49,7 +47,7 @@ final class FileGenerator extends XMLFilterImpl {
 
     private DITAOTLogger logger;
     /** Plug-in features. */
-    private final Map<String, List<String>> featureTable;
+    private final Map<String, List<Value>> featureTable;
     private final Map<String, Features> pluginTable;
     /** Template file. */
     private File templateFile;
@@ -65,16 +63,12 @@ final class FileGenerator extends XMLFilterImpl {
      * Constructor init featureTable.
      * @param featureTbl featureTbl
      */
-    public FileGenerator(final Hashtable<String, List<String>> featureTbl, final Map<String, Features> pluginTable) {
+    public FileGenerator(final Hashtable<String, List<Value>> featureTbl, final Map<String, Features> pluginTable) {
         featureTable = featureTbl;
         this.pluginTable = pluginTable;
         templateFile = null;
     }
 
-    /**
-     * Set logger.
-     * @param logger logger instance
-     */
     public void setLogger(final DITAOTLogger logger) {
         this.logger = logger;
     }
@@ -89,7 +83,7 @@ final class FileGenerator extends XMLFilterImpl {
 
         try (final InputStream in = new BufferedInputStream(new FileInputStream(fileName));
              final OutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile))) {
-            final Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            final Transformer serializer = TransformerFactory.newInstance().newTransformer();
             final SAXParserFactory parserFactory = SAXParserFactory.newInstance();
             parserFactory.setNamespaceAware(true);
             XMLReader reader = parserFactory.newSAXParser().getXMLReader();
@@ -99,9 +93,13 @@ final class FileGenerator extends XMLFilterImpl {
             final Source source = new SAXSource(reader, new InputSource(in));
             source.setSystemId(fileName.toURI().toString());
             final Result result = new StreamResult(out);
-            transformer.transform(source, result);
+            serializer.transform(source, result);
+        } catch (final UncheckedXPathException e) {
+            logger.error(e.getXPathException().getMessageAndLocation());
         } catch (final RuntimeException e) {
             throw e;
+        } catch (final TransformerException e) {
+            logger.error("Failed to transform " + fileName + ": " + e.getMessageAndLocation(), e);
         } catch (final Exception e) {
             logger.error("Failed to transform " + fileName + ": " + e.getMessage(), e);
         }
@@ -156,7 +154,10 @@ final class FileGenerator extends XMLFilterImpl {
                                 action.setLogger(logger);
                                 action.setFeatures(pluginTable);
                                 action.addParam(PARAM_TEMPLATE, templateFile.getAbsolutePath());
-                                action.setInput(asList(attributes.getValue(i).split(Integrator.FEAT_VALUE_SEPARATOR)));
+                                final List<Value> value = Stream.of(attributes.getValue(i).split(Integrator.FEAT_VALUE_SEPARATOR))
+                                        .map(val -> new Value(null, val))
+                                        .collect(Collectors.toList());
+                                action.setInput(value);
                                 final String result = action.getResult();
                                 atts.add(name, result);
                             } else {

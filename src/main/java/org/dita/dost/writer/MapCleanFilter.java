@@ -14,9 +14,7 @@ import org.xml.sax.SAXException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-import static org.dita.dost.util.Constants.ATTRIBUTE_NAME_CLASS;
-import static org.dita.dost.util.Constants.MAPGROUP_D_KEYDEF;
-import static org.dita.dost.util.Constants.SUBMAP;
+import static org.dita.dost.util.Constants.*;
 
 public class MapCleanFilter extends AbstractXMLFilter {
 
@@ -46,7 +44,7 @@ public class MapCleanFilter extends AbstractXMLFilter {
             stack.addFirst(Keep.DISCARD_BRANCH);
         } else if (SUBMAP.matches(cls)) {
             stack.addFirst(Keep.DISCARD);
-        } else if (MAPGROUP_D_KEYDEF.matches(cls)) {
+        } else if (DITA_OT_D_KEYDEF.matches(cls)) {
             stack.addFirst(Keep.DISCARD_BRANCH);
         } else {
             stack.addFirst(Keep.RETAIN);
@@ -66,7 +64,7 @@ public class MapCleanFilter extends AbstractXMLFilter {
     }
 
     @Override
-    public void characters(char ch[], int start, int length)
+    public void characters(char[] ch, int start, int length)
             throws SAXException {
         if (stack.peekFirst() != Keep.DISCARD_BRANCH) {
             getContentHandler().characters(ch, start, length);
@@ -74,7 +72,7 @@ public class MapCleanFilter extends AbstractXMLFilter {
     }
 
     @Override
-    public void ignorableWhitespace(char ch[], int start, int length)
+    public void ignorableWhitespace(char[] ch, int start, int length)
             throws SAXException {
         if (stack.peekFirst() != Keep.DISCARD_BRANCH) {
             getContentHandler().ignorableWhitespace(ch, start, length);

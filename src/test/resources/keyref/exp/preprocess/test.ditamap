@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <?path2project ?>
-<map xmlns:ditaarch="http://dita.oasis-open.org/architecture/2005/" cascade="nomerge" class="- map/map " ditaarch:DITAArchVersion="1.2" domains="(topic delay-d)                          (map mapgroup-d)                           (topic indexing-d)                          (map glossref-d)                          (topic hi-d)                           (topic ut-d)                           (topic hazard-d)                          (topic abbrev-d)                          (topic pr-d)                           (topic sw-d)                          (topic ui-d)                         " id="test" title="Key reference test">
+<map xmlns:ditaarch="http://dita.oasis-open.org/architecture/2005/" cascade="nomerge" class="- map/map " ditaarch:DITAArchVersion="1.3" domains="(topic delay-d)                          (map mapgroup-d)                           (topic indexing-d)                          (map glossref-d)                          (topic hi-d)                           (topic ut-d)                           (topic hazard-d)                          (topic abbrev-d)                          (topic pr-d)                           (topic sw-d)                          (topic ui-d)                         " id="test" title="Key reference test">
   <topicref class="- map/topicref " keys="scope-local" href="a.xml" type="topic">
     <topicmeta class="- map/topicmeta ">
       <navtitle class="- topic/navtitle ">a</navtitle>
@@ -24,10 +24,9 @@
   </topicref>
   <topicref class="- map/topicref " href="b.xml" keyref="topicref" navtitle="b" scope="peer">
     <topicmeta class="- map/topicmeta ">
-      <navtitle class="- topic/navtitle ">b</navtitle>
-      <?ditaot gentext?>
-      <linktext class="- map/linktext ">b</linktext>
-    </topicmeta>
+      <navtitle class="- topic/navtitle ">b</navtitle><?ditaot usertext?><linktext class="- map/linktext ">topicref linktext</linktext><?ditaot usershortdesc?><shortdesc class="- map/shortdesc ">topicref shortdesc</shortdesc>
+      <keywords class="- topic/keywords "><keyword class="- topic/keyword ">topicref keyword</keyword></keywords>
+      </topicmeta>
   </topicref>
   <navref class="- map/navref " mapref="b.xml" keyref="navref" scope="peer"/>
   <keydef class="+ map/topicref mapgroup-d/keydef " href="b.xml" keys="author" navtitle="b" processing-role="resource-only" scope="peer">
@@ -210,6 +209,12 @@
       <keywords class="- topic/keywords ">
         <keyword class="- topic/keyword ">indextermref keyword</keyword>
       </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef class="+ map/topicref mapgroup-d/keydef " keys="object" href="https://example.com" scope="external" format="html" processing-role="resource-only">
+    <topicmeta class="- map/topicmeta ">
+      <navtitle class="- topic/navtitle ">Object test</navtitle>
+      <linktext class="- map/linktext ">Object test</linktext>
     </topicmeta>
   </keydef>
 </map>

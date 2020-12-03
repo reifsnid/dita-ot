@@ -9,9 +9,11 @@ package org.dita.dost.writer;
 
 import org.dita.dost.TestUtils;
 import org.dita.dost.TestUtils.CachingLogger;
+import org.dita.dost.store.StreamStore;
 import org.dita.dost.util.Job;
 import org.dita.dost.util.KeyDef;
 import org.dita.dost.util.KeyScope;
+import org.dita.dost.util.XMLUtils;
 import org.dita.dost.util.XMLUtils.AttributesBuilder;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,7 +51,8 @@ public class ConkeyrefFilterTest {
 
     @Before
     public void setUp() throws IOException {
-        job = new Job(new File(System.getProperty("java.io.tmpdir")));
+        final File tempDir = new File(System.getProperty("java.io.tmpdir"));
+        job = new Job(tempDir, new StreamStore(tempDir, new XMLUtils()));
         srcDir = new File(".").getCanonicalFile().toURI();
     }
 
@@ -142,7 +145,7 @@ public class ConkeyrefFilterTest {
 
         final ConkeyrefFilter f = getConkeyrefFilter();
         f.setCurrentFile(job.tempDirURI.resolve("product/topic.dita"));
-        f.setKeyDefinitions(createKeyScope(toMap(new KeyDef("foo", URI.create("../common/library.dita"), ATTR_SCOPE_VALUE_LOCAL, ATTR_FORMAT_VALUE_DITA, URI.create("main.ditamap"), null))));
+        f.setKeyDefinitions(createKeyScope(toMap(new KeyDef("foo", URI.create("../common/library.dita"), ATTR_SCOPE_VALUE_LOCAL, ATTR_FORMAT_VALUE_DITA, job.tempDirURI.resolve("maps/root.map"), null))));
         f.setContentHandler(new DefaultHandler() {
             @Override
             public void startElement(final String uri, final String localName, final String qName, final Attributes atts) throws SAXException {
@@ -151,6 +154,42 @@ public class ConkeyrefFilterTest {
         });
 
         f.startElement(NULL_NS_URI, TOPIC_P.localName, TOPIC_P.localName, new AttributesBuilder()
+                .add(ATTRIBUTE_NAME_CONKEYREF, "foo")
+                .build());
+    }
+
+    @Test
+    public void testRelativePathsWithUplevels_flat() throws SAXException, IOException {
+        job.setInputDir(new File(".").getCanonicalFile().toURI());
+        job.add(new Job.FileInfo.Builder()
+                .src(srcDir.resolve("maps/root.map"))
+                .uri(URI.create("ROOT.map"))
+                .format(ATTR_FORMAT_VALUE_DITAMAP)
+                .isInput(true)
+                .build());
+        job.add(new Job.FileInfo.Builder()
+                .src(srcDir.resolve("product/topic.dita"))
+                .uri(URI.create("THIS.dita"))
+                .format(ATTR_FORMAT_VALUE_DITA)
+                .hasConref(true)
+                .build());
+        job.add(new Job.FileInfo.Builder()
+                .src(srcDir.resolve("common/library.dita"))
+                .uri(URI.create("LIBRARY.dita"))
+                .format(ATTR_FORMAT_VALUE_DITA)
+                .build());
+
+        final ConkeyrefFilter f = getConkeyrefFilter();
+        f.setCurrentFile(job.tempDirURI.resolve("topic.dita"));
+        f.setKeyDefinitions(createKeyScope(toMap(new KeyDef("foo", URI.create("LIBRARY.dita"), ATTR_SCOPE_VALUE_LOCAL, ATTR_FORMAT_VALUE_DITA, URI.create("main.ditamap"), null))));
+        f.setContentHandler(new DefaultHandler() {
+            @Override
+            public void startElement(final String uri, final String localName, final String qName, final Attributes atts) throws SAXException {
+                assertEquals("LIBRARY.dita", atts.getValue(ATTRIBUTE_NAME_CONREF));
+            }
+        });
+
+            f.startElement(NULL_NS_URI, TOPIC_P.localName, TOPIC_P.localName, new AttributesBuilder()
                 .add(ATTRIBUTE_NAME_CONKEYREF, "foo")
                 .build());
     }

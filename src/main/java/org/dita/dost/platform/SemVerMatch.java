@@ -86,7 +86,7 @@ public class SemVerMatch {
         }
     }
 
-    private static final Pattern MATCH_PATTERN = Pattern.compile("(~|\\^|<=?|>=?)?(.+)");
+    private static final Pattern MATCH_PATTERN = Pattern.compile("(~|\\^|<=?|>=?)?([0-9.x*]+?)(-.+?(\\+.+?)?)?");
 
     public final Range start;
     public final Range end;
@@ -219,7 +219,7 @@ public class SemVerMatch {
 
     private static Range tilde(Match match, Integer major, Integer minor) {
         final Integer major1 = major != null && minor == null ? Integer.valueOf(major + 1) : major;
-        final Integer minor1 = minor != null ? Integer.valueOf(minor + 1) : null;
+        final Integer minor1 = minor != null ? minor + 1 : null;
         final Integer patch1 = null;
         return new Range(match,
                 major1 != null ? major1 : 0,

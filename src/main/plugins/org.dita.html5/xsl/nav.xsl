@@ -24,9 +24,13 @@ See the accompanying LICENSE file for applicable license.
     <xsl:apply-templates select="document($input.map.url)" mode="normalize-map"/>
   </xsl:variable>
 
+  <xsl:attribute-set name="toc">
+    <xsl:attribute name="role">toc</xsl:attribute>
+  </xsl:attribute-set>
+
   <xsl:template match="*" mode="gen-user-sidetoc">
     <xsl:if test="$nav-toc = ('partial', 'full')">
-      <nav role="toc">
+      <nav xsl:use-attribute-sets="toc">
         <ul>
           <xsl:choose>
             <xsl:when test="$nav-toc = 'partial'">
@@ -50,7 +54,7 @@ See the accompanying LICENSE file for applicable license.
     </xsl:if>
   </xsl:template>
   
-  <xsl:variable name="current-file" select="translate(if ($FILEDIR = '.') then $FILENAME else concat($FILEDIR, '/', $FILENAME), '\', '/')" as="xs:string?"/>
+  <xsl:variable name="current-file" select="dita-ot:normalize-href(if ($FILEDIR = '.') then $FILENAME else concat($FILEDIR, '/', $FILENAME))" as="xs:string?"/>
   <xsl:variable name="current-topicrefs" select="$input.map//*[contains(@class, ' map/topicref ')][dita-ot:get-path($PATH2PROJ, .) = $current-file]" as="element()*"/>
   <xsl:variable name="current-topicref" select="$current-topicrefs[1]" as="element()?"/>
   

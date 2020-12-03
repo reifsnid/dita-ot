@@ -25,7 +25,8 @@ public final class DitaMetaWriter extends AbstractDitaMetaWriter {
     ));
     private static final List<DitaClass> titlealtsOrder = Collections.unmodifiableList(Arrays.asList(
             TOPIC_NAVTITLE,
-            MAP_SEARCHTITLE
+            MAP_SEARCHTITLE,
+            TOPIC_SEARCHTITLE
     ));
     private static final List<DitaClass> prologPosition = Collections.unmodifiableList(Arrays.asList(
             TOPIC_TITLE,
@@ -64,9 +65,9 @@ public final class DitaMetaWriter extends AbstractDitaMetaWriter {
     ));
 
     public Document process(final Document doc) {
-        Element root = doc.getDocumentElement();
-        if (root.getTagName().equals(ELEMENT_NAME_DITA)) {
-            root = getFirstChildElement(root, TOPIC_TOPIC);
+        final Element root = getMatchingTopicElement(doc.getDocumentElement());
+        if (root == null) {
+            return doc;
         }
         if (hasMetadata(titlealtsOrder)) {
             final Element titlealts = findMetadataContainer(root, titlealtsPosition, TOPIC_TITLEALTS);

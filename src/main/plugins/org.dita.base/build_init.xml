@@ -6,7 +6,8 @@ Copyright 2006 IBM Corporation
 
 See the accompanying LICENSE file for applicable license.
 -->
-<project name="ditaot-init">
+<project name="ditaot-init"
+         xmlns:if="ant:if">
     
   <!-- Read configuration properties -->
   <loadproperties>
@@ -19,6 +20,7 @@ See the accompanying LICENSE file for applicable license.
     <catalogpath path="${dita.plugin.org.dita.base.dir}/catalog-dita.xml"/>
   </xmlcatalog>
 
+  <taskdef name="init-project" classname="org.dita.dost.ant.InitializeProjectTask"/>
   <taskdef name="pipeline" classname="org.dita.dost.ant.ExtensibleAntInvoker"/>
   <taskdef name="dita-ot-echo" classname="org.dita.dost.ant.DITAOTEchoTask"/>
   <taskdef name="dita-ot-fail" classname="org.dita.dost.ant.DITAOTFailTask"/>
@@ -49,6 +51,8 @@ See the accompanying LICENSE file for applicable license.
                    log-arg"/>
 
   <target name="init-properties">
+    <property name="parallel" value="false"/>
+    <property name="store-type" value="file"/>
     <property name="default.language" value="en"/>
     <property name="generate-debug-attributes" value="true"/>
     <property name="processing-mode" value="lax"/>
@@ -66,6 +70,7 @@ See the accompanying LICENSE file for applicable license.
     <condition property="dita.output.dir" value="${dita.temp.dir}${file.separator}${temp.output.dir.name}" else="${output.dir}">
       <isset property="temp.output.dir.name"/>
     </condition>
+    <init-project storeType="${store-type}"/>
     <property environment="env" />
   </target>
 
@@ -88,11 +93,7 @@ See the accompanying LICENSE file for applicable license.
 
     <!-- begin to init required parameters -->
     
-    <condition property="filter-stage" value="early">
-      <not>
-        <isset property="filter-stage"/>
-      </not>
-    </condition>
+    <property name="filter-stage" value="early"/>
     <condition property="filter-on-parse" value="true">
       <and>
         <equals arg1="${filter-stage}" arg2="early"/>
@@ -115,38 +116,21 @@ See the accompanying LICENSE file for applicable license.
       </and>
     </condition>
 
-    <condition property="args.grammar.cache"
-          value="yes">
-            <not>
-              <isset property="args.grammar.cache" />
-            </not>
-    </condition>
-
-    <condition property="args.xml.systemid.set"
-          value="yes">
-            <not>
-              <isset property="args.xml.systemid.set" />
-            </not>
-    </condition>
+    <property name="args.grammar.cache" value="yes"/>
+    <property name="args.xml.systemid.set" value="yes"/>    
     <!-- end to init required parameters -->
 
     <!-- create required directories -->
     <mkdir dir="${output.dir}" />
-    <delete dir="${dita.temp.dir}" quiet="false"/>
-    <mkdir dir="${dita.temp.dir}" />
-
-    <condition property="args.logdir" value="${output.dir}">
-      <not>
-        <isset property="args.logdir" />
-      </not>
+    <local name="createTempDir"/>
+    <condition property="createTempDir" value="true">
+      <equals arg1="${store-type}" arg2="file"/>
     </condition>
+    <delete dir="${dita.temp.dir}" quiet="false" if:true="${createTempDir}"/>
+    <mkdir dir="${dita.temp.dir}" if:true="${createTempDir}" />
 
     <!-- Validate the xml file or not,default is validation(true)-->
-    <condition property="validate" value="true">
-       <not>
-       <isset property="validate" />
-       </not>
-    </condition>
+    <property name="validate" value="true"/>
     
     <!-- Related links to output: none, all, nofamily -->
     <condition property="include.rellinks" value="">
@@ -169,17 +153,9 @@ See the accompanying LICENSE file for applicable license.
     </condition>
 
     <!--solution for the output control-->
-    <condition property="generate.copy.outer" value="1">
-       <not>
-       <isset property="generate.copy.outer" />
-       </not>
-    </condition>
+    <property name="generate.copy.outer" value="1"/>
 
-    <condition property="onlytopic.in.map" value="false">
-       <not>
-       <isset property="onlytopic.in.map" />
-       </not>
-  </condition>
+    <property name="onlytopic.in.map" value="false"/>
 
     <property name="link-crawl" value="topic"/>
     
@@ -189,11 +165,7 @@ See the accompanying LICENSE file for applicable license.
   warn  :1b) Complete if files will be generated/copied outside, but log a warning
   quiet  :1c) Quietly finish with only those files (no warning or error)
     -->
-    <condition property="outer.control" value="warn">
-       <not>
-       <isset property="outer.control" />
-       </not>
-    </condition>
+    <property name="outer.control" value="warn"/>
 
     <condition property="inner.transform">
         <equals arg1="${generate.copy.outer}" arg2="1"/>
@@ -203,9 +175,7 @@ See the accompanying LICENSE file for applicable license.
       <equals arg1="${generate.copy.outer}" arg2="3"></equals>
     </condition>
     
-    <condition property="conserve-memory" value="false">
-      <not><isset property="conserve-memory"/></not>
-    </condition>
+    <property name="conserve-memory" value="false"/>
   </target>
   
   <target name="log-arg">

@@ -434,7 +434,7 @@ See the accompanying LICENSE file for applicable license.
   <thead>
     <tr>
       <xsl:call-template name="commonattributes"/>
-      <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+      <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
       <xsl:apply-templates select="*[contains(@class,' task/choptionhd ')]"/>
       <xsl:apply-templates select="*[contains(@class,' task/chdeschd ')]"/>
     </tr>
@@ -742,6 +742,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="links" as="node()*"/>
     <xsl:if test="normalize-space(string-join($links, ''))">
       <linklist class="- topic/linklist " outputclass="relinfo reltasks">
+        <xsl:copy-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
         <title class="- topic/title ">
           <xsl:call-template name="getVariable">
             <xsl:with-param name="id" select="'Related tasks'"/>

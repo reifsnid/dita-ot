@@ -8,34 +8,25 @@
  */
 package org.dita.dost.reader;
 
-import static org.dita.dost.util.Constants.*;
-import static org.dita.dost.util.URLUtils.*;
+import org.dita.dost.log.MessageUtils;
+import org.dita.dost.util.FileUtils;
+import org.dita.dost.util.XMLUtils;
+import org.w3c.dom.*;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
 
-import java.io.File;
-import java.net.URI;
-import java.util.Collections;
-import java.util.Hashtable;
-import java.util.Map;
-
-import javax.xml.parsers.DocumentBuilder;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 import javax.xml.transform.dom.DOMResult;
+import java.io.File;
+import java.net.URI;
+import java.util.*;
 
-import org.dita.dost.log.MessageUtils;
-import org.dita.dost.util.FileUtils;
-import org.dita.dost.util.XMLUtils;
-import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
-import org.w3c.dom.DocumentFragment;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
+import static org.dita.dost.util.Constants.*;
+import static org.dita.dost.util.URLUtils.toFile;
+import static org.dita.dost.util.URLUtils.toURI;
 
 /**
  * Class for reading conref push content.
@@ -48,7 +39,6 @@ public final class ConrefPushReader extends AbstractXMLReader {
     /** Document used to construct push table DocumentFragments. */
     private final Document pushDocument;
     /** push table.*/
-    private final XMLReader reader;
 
     /**keep the file path of current file under parse
     filePath is useful to get the absolute path of the target file.*/
@@ -99,12 +89,11 @@ public final class ConrefPushReader extends AbstractXMLReader {
         pushcontentWriter = getXMLStreamWriter();
         pushType = null;
         try {
-            reader.parse(filename.toURI().toString());
+            job.getStore().transform(filename.toURI(), this);
         } catch (final RuntimeException e) {
             throw e;
         } catch (final Exception e) {
             logger.error(e.getMessage(), e) ;
-            e.printStackTrace();
         }
     }
 
@@ -122,17 +111,8 @@ public final class ConrefPushReader extends AbstractXMLReader {
      */
     public ConrefPushReader() {
         pushtable = new Hashtable<>();
-        try {
-            reader = XMLUtils.getXMLReader();
-            reader.setFeature(FEATURE_NAMESPACE_PREFIX, false);
-            reader.setFeature(FEATURE_NAMESPACE, true);
-            reader.setContentHandler(this);
-        } catch (final Exception e) {
-            throw new RuntimeException("Failed to initialize XML parser: " + e.getMessage(), e);
-        }
 
-        final DocumentBuilder documentBuilder = XMLUtils.getDocumentBuilder();
-        pushDocument = documentBuilder.newDocument();
+        pushDocument = XMLUtils.getDocumentBuilder().newDocument();
     }
 
     @Override
@@ -148,65 +128,70 @@ public final class ConrefPushReader extends AbstractXMLReader {
 
         final String conactValue = atts.getValue(ATTRIBUTE_NAME_CONACTION);
         if (!start && conactValue != null) {
-            if (ATTR_CONACTION_VALUE_PUSHBEFORE.equals(conactValue)) {
-                if (pushcontentDocumentFragment.getChildNodes().getLength() != 0) {
-                    // there are redundant "pushbefore", create a new pushcontent and emit a warning message.
-                    if (pushcontentWriter != null) {
-                        try {
-                            pushcontentWriter.close();
-                        } catch (final XMLStreamException e) {
-                            throw new SAXException(e);
+            switch (conactValue) {
+                case ATTR_CONACTION_VALUE_PUSHBEFORE:
+                    if (pushcontentDocumentFragment.getChildNodes().getLength() != 0) {
+                        // there are redundant "pushbefore", create a new pushcontent and emit a warning message.
+                        if (pushcontentWriter != null) {
+                            try {
+                                pushcontentWriter.close();
+                            } catch (final XMLStreamException e) {
+                                throw new SAXException(e);
+                            }
                         }
+                        pushcontentWriter = getXMLStreamWriter();
+                        logger.warn(MessageUtils.getMessage("DOTJ044W").setLocation(atts).toString());
                     }
-                    pushcontentWriter = getXMLStreamWriter();
-                    logger.warn(MessageUtils.getMessage("DOTJ044W").setLocation(atts).toString());
-                }
-                start = true;
-                level = 1;
-                putElement(name, atts, true);
-                pushType = ATTR_CONACTION_VALUE_PUSHBEFORE;
-            } else if (ATTR_CONACTION_VALUE_PUSHAFTER.equals(conactValue)) {
-                start = true;
-                level = 1;
-                if (target == null) {
-                    logger.error(MessageUtils.getMessage("DOTJ039E").setLocation(atts).toString());
-                } else {
+                    start = true;
+                    level = 1;
                     putElement(name, atts, true);
-                    pushType = ATTR_CONACTION_VALUE_PUSHAFTER;
-                }
-            } else if (ATTR_CONACTION_VALUE_PUSHREPLACE.equals(conactValue)) {
-                start = true;
-                level = 1;
-                target = toURI(atts.getValue(ATTRIBUTE_NAME_CONREF));
-                if (target == null) {
-                    logger.error(MessageUtils.getMessage("DOTJ040E").setLocation(atts).toString());
-                } else {
-                    pushType = ATTR_CONACTION_VALUE_PUSHREPLACE;
-                    putElement(name, atts, true);
-                }
+                    pushType = ATTR_CONACTION_VALUE_PUSHBEFORE;
+                    break;
+                case ATTR_CONACTION_VALUE_PUSHAFTER:
+                    start = true;
+                    level = 1;
+                    if (target == null) {
+                        logger.error(MessageUtils.getMessage("DOTJ039E").setLocation(atts).toString());
+                    } else {
+                        putElement(name, atts, true);
+                        pushType = ATTR_CONACTION_VALUE_PUSHAFTER;
+                    }
+                    break;
+                case ATTR_CONACTION_VALUE_PUSHREPLACE:
+                    start = true;
+                    level = 1;
+                    target = toURI(atts.getValue(ATTRIBUTE_NAME_CONREF));
+                    if (target == null) {
+                        logger.error(MessageUtils.getMessage("DOTJ040E").setLocation(atts).toString());
+                    } else {
+                        pushType = ATTR_CONACTION_VALUE_PUSHREPLACE;
+                        putElement(name, atts, true);
+                    }
 
-            } else if (ATTR_CONACTION_VALUE_MARK.equals(conactValue)) {
-                target = toURI(atts.getValue(ATTRIBUTE_NAME_CONREF));
-                if (target == null) {
-                    logger.error(MessageUtils.getMessage("DOTJ068E").setLocation(atts).toString());
-                }
-                if (target != null &&
-                        pushcontentDocumentFragment != null && pushcontentDocumentFragment.getChildNodes().getLength() > 0 &&
-                        ATTR_CONACTION_VALUE_PUSHBEFORE.equals(pushType)) {
-                    //pushcontent != null means it is pushbefore action
-                    //we need to add target and content to pushtable
-                    if (pushcontentWriter != null) {
-                        try {
-                            pushcontentWriter.close();
-                        } catch (final XMLStreamException e) {
-                            throw new SAXException(e);
-                        }
+                    break;
+                case ATTR_CONACTION_VALUE_MARK:
+                    target = toURI(atts.getValue(ATTRIBUTE_NAME_CONREF));
+                    if (target == null) {
+                        logger.error(MessageUtils.getMessage("DOTJ068E").setLocation(atts).toString());
                     }
-                    addtoPushTable(target, replaceContent(pushcontentDocumentFragment), pushType);
-                    pushcontentWriter = getXMLStreamWriter();
-                    target = null;
-                    pushType = null;
-                }
+                    if (target != null &&
+                            pushcontentDocumentFragment != null && pushcontentDocumentFragment.getChildNodes().getLength() > 0 &&
+                            ATTR_CONACTION_VALUE_PUSHBEFORE.equals(pushType)) {
+                        //pushcontent != null means it is pushbefore action
+                        //we need to add target and content to pushtable
+                        if (pushcontentWriter != null) {
+                            try {
+                                pushcontentWriter.close();
+                            } catch (final XMLStreamException e) {
+                                throw new SAXException(e);
+                            }
+                        }
+                        addtoPushTable(target, replaceContent(pushcontentDocumentFragment), pushType);
+                        pushcontentWriter = getXMLStreamWriter();
+                        target = null;
+                        pushType = null;
+                    }
+                    break;
             }
         }
     }
@@ -253,6 +238,7 @@ public final class ConrefPushReader extends AbstractXMLReader {
         //conref information like @conref @conaction in current element
         //when copying it to pushcontent. True means remove and false means
         //not remove.
+        final Set<String> namespaces = new HashSet<>();
         try {
             pushcontentWriter.writeStartElement(elemName);
             for (int index = 0; index < atts.getLength(); index++) {
@@ -266,9 +252,14 @@ public final class ConrefPushReader extends AbstractXMLReader {
                     }
                     final int offset = atts.getQName(index).indexOf(":");
                     final String prefix = offset != -1 ? atts.getQName(index).substring(0, offset) : "";
+                    if (!namespaces.contains(prefix)) {
+                        namespaces.add(prefix);
+                        if (!prefix.isEmpty()) {
+                            pushcontentWriter.writeNamespace(prefix, atts.getURI(index));
+                        }
+                    }
                     pushcontentWriter.writeAttribute(prefix, atts.getURI(index), atts.getLocalName(index), value);
                 }
-
             }
             //id attribute should only be added to the starting element
             //which dosen't have id attribute set

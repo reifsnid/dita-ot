@@ -30,12 +30,7 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.events.XMLEvent;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 import java.io.*;
 import java.net.URI;
@@ -100,7 +95,7 @@ public final class Integrator {
 
     /** Plugin table which contains detected plugins. */
     private final Map<String, Features> pluginTable;
-    private final Set<String> templateSet = new HashSet<>(16);
+    private final Map<String, Value> templateSet;
     private final File ditaDir;
     /** Plugin configuration file. */
     private final Set<File> descSet;
@@ -109,12 +104,13 @@ public final class Integrator {
     private final PluginParser parser;
     private DITAOTLogger logger;
     private final Set<String> loadedPlugin;
-    private final Hashtable<String, List<String>> featureTable;
+    private final Hashtable<String, List<Value>> featureTable;
     @Deprecated
     private File propertiesFile;
     private final Set<String> extensionPoints;
     private final Map<String, Integer> pluginOrder = new HashMap<>();
     private Properties properties;
+    private Set<String> pluginList;
 
     /**
      * Default Constructor.
@@ -122,6 +118,7 @@ public final class Integrator {
     public Integrator(final File ditaDir) {
         this.ditaDir = ditaDir;
         pluginTable = new HashMap<>(16);
+        templateSet = new HashMap<>(16);
         descSet = new HashSet<>(16);
         loadedPlugin = new HashSet<>(16);
         featureTable = new Hashtable<>(16);
@@ -149,7 +146,8 @@ public final class Integrator {
         });
         parser = new PluginParser(ditaDir);
         pluginsDoc = XMLUtils.getDocumentBuilder().newDocument();
-//        pluginsDoc.setResult(new StreamResult(new File(ditaDir, RESOURCES_DIR + File.separator + "plugins.xml")));
+
+        pluginList = getPluginIds(readPlugins());
     }
 
     /**
@@ -205,7 +203,8 @@ public final class Integrator {
         for (final String tmpl : properties.getProperty(CONF_TEMPLATES, "").split(PARAM_VALUE_SEPARATOR)) {
             final String t = tmpl.trim();
             if (t.length() != 0) {
-                templateSet.add(t);
+                logger.warn(MessageUtils.getMessage("DOTJ080W", "templates", "template").toString());
+                templateSet.put(t, null);
             }
         }
 
@@ -225,8 +224,24 @@ public final class Integrator {
             }
         }
 
-        parsePlugin();
+        mergePlugins();
         integrate();
+        logChanges(pluginList, getPluginIds(pluginsDoc));
+    }
+
+    private void logChanges(final Set<String> orig, final Set<String> mod) {
+        final List<String> removed = new ArrayList<>(orig);
+        removed.removeAll(mod);
+        removed.sort(Comparator.naturalOrder());
+        for (final String p : removed) {
+            logger.warn("Removed " + p);
+        }
+        final List<String> added = new ArrayList<>(mod);
+        added.removeAll(orig);
+        added.sort(Comparator.naturalOrder());
+        for (final String p : added) {
+            logger.warn("Added " + p);
+        }
     }
 
     /**
@@ -243,9 +258,10 @@ public final class Integrator {
         }
 
         // generate the files from template
-        for (final String template : templateSet) {
-            final File templateFile = new File(ditaDir, template);
+        for (final Entry<String, Value> template : templateSet.entrySet()) {
+            final File templateFile = new File(ditaDir, template.getKey());
             logger.debug("Process template " + templateFile.getPath());
+//            fileGen.setPluginId(template.getValue().id);
             fileGen.generate(templateFile);
         }
 
@@ -260,8 +276,8 @@ public final class Integrator {
             }
         }
         if (featureTable.containsKey(FEAT_IMAGE_EXTENSIONS)) {
-            for (final String ext : featureTable.get(FEAT_IMAGE_EXTENSIONS)) {
-                final String e = ext.trim();
+            for (final Value ext : featureTable.get(FEAT_IMAGE_EXTENSIONS)) {
+                final String e = ext.value.trim();
                 if (e.length() != 0) {
                     imgExts.add(e);
                 }
@@ -275,7 +291,7 @@ public final class Integrator {
         // transtypes
         final String transtypes = featureTable.entrySet().stream()
                 .filter(e -> e.getKey().equals(FEAT_TRANSTYPES))
-                .flatMap(e -> e.getValue().stream())
+                .flatMap(e -> e.getValue().stream().map(val -> val.value))
                 .distinct()
                 .collect(Collectors.joining(CONF_LIST_SEPARATOR));
         configuration.put(CONF_TRANSTYPES, transtypes);
@@ -283,8 +299,8 @@ public final class Integrator {
         // print transtypes
         final Set<String> printTranstypes = new HashSet<>();
         if (featureTable.containsKey(FEAT_PRINT_TRANSTYPES)) {
-            for (final String ext : featureTable.get(FEAT_PRINT_TRANSTYPES)) {
-                final String e = ext.trim();
+            for (final Value ext : featureTable.get(FEAT_PRINT_TRANSTYPES)) {
+                final String e = ext.value.trim();
                 if (e.length() != 0) {
                     printTranstypes.add(e);
                 }
@@ -338,7 +354,9 @@ public final class Integrator {
             messages.store(messagesOut, null);
         }
 
-        final Collection<File> jars = featureTable.containsKey(FEAT_LIB_EXTENSIONS) ? relativize(new LinkedHashSet<>(featureTable.get(FEAT_LIB_EXTENSIONS))) : Collections.EMPTY_SET;
+        final Collection<File> jars = featureTable.containsKey(FEAT_LIB_EXTENSIONS)
+                ? relativize(new LinkedHashSet<>(featureTable.get(FEAT_LIB_EXTENSIONS)))
+                : Collections.emptySet();
         writeEnvShell(jars);
         writeEnvBatch(jars);
 
@@ -348,14 +366,18 @@ public final class Integrator {
                 .build();
         writeStartcmdShell(libJars);
         writeStartcmdBatch(libJars);
+
+        customIntegration();
     }
 
     private Properties readMessageBundle() throws IOException, XMLStreamException {
         final Properties messages = new Properties();
+//        final Path basePluginDir = pluginTable.get("org.dita.base").getPluginDir().toPath();
+//        final File messagesXmlFile = basePluginDir.resolve(CONFIG_DIR).resolve("messages.xml").toFile();
         final File messagesXmlFile = ditaDir.toPath().resolve(CONFIG_DIR).resolve("messages.xml").toFile();
         if (messagesXmlFile.exists()) {
             try (final InputStream in = new FileInputStream(messagesXmlFile)) {
-                final XMLStreamReader src = XMLInputFactory.newFactory().createXMLStreamReader(new StreamSource(in));
+                final XMLStreamReader src = XMLInputFactory.newInstance().createXMLStreamReader(new StreamSource(in));
                 String id = null;
                 final StringBuilder buf = new StringBuilder();
                 while (src.hasNext()) {
@@ -413,6 +435,20 @@ public final class Integrator {
         return res;
     }
 
+    private void customIntegration() {
+        final ServiceLoader<CustomIntegrator> customIntegrators = ServiceLoader.load(CustomIntegrator.class);
+        for (final CustomIntegrator customIntegrator : customIntegrators) {
+            customIntegrator.setLogger(logger);
+            customIntegrator.setDitaDir(ditaDir);
+            try {
+                customIntegrator.process();
+            } catch (final Exception e) {
+                logger.error("Custom integrator " + customIntegrator.getClass().getName() + " failed: " + e.getMessage(), e);
+
+            }
+        }
+    }
+
     private Iterable<String> orderPlugins(final Set<String> ids) {
         final List<String> res = new ArrayList<>(ids);
         res.sort((s1, s2) -> {
@@ -451,11 +487,11 @@ public final class Integrator {
         return res;
     }
 
-    private Collection<File> relativize(final Collection<String> src) {
+    private Collection<File> relativize(final Collection<Value> src) {
         final Collection<File> res = new ArrayList<>(src.size());
         final File base = new File(ditaDir, "dummy");
-        for (final String lib: src) {
-            final File libFile = toFile(lib);
+        for (final Value lib: src) {
+            final File libFile = toFile(lib.value);
             if (!libFile.exists()) {
                 throw new IllegalArgumentException("Library file not found: " + libFile.getAbsolutePath());
             }
@@ -636,8 +672,8 @@ public final class Integrator {
     private String readExtensions(final String featureName) {
         final Set<String> exts = new HashSet<>();
         if (featureTable.containsKey(featureName)) {
-            for (final String ext : featureTable.get(featureName)) {
-                final String e = ext.trim();
+            for (final Value ext : featureTable.get(featureName)) {
+                final String e = ext.value.trim();
                 if (e.length() != 0) {
                     exts.add(e);
                 }
@@ -658,25 +694,31 @@ public final class Integrator {
             final Features pluginFeatures = pluginTable.get(plugin);
             final Map<String, List<String>> featureSet = pluginFeatures.getAllFeatures();
             for (final Map.Entry<String, List<String>> currentFeature : featureSet.entrySet()) {
-                if (!extensionPoints.contains(currentFeature.getKey())) {
+                final String key = currentFeature.getKey();
+                final List<Value> values = currentFeature.getValue().stream()
+                        .map(val -> new Value(plugin, val))
+                        .collect(Collectors.toList());
+                if (!extensionPoints.contains(key)) {
                     final String msg = "Plug-in " + plugin + " uses an undefined extension point "
-                            + currentFeature.getKey();
+                            + key;
                     throw new RuntimeException(msg);
                 }
-                if (featureTable.containsKey(currentFeature.getKey())) {
-                    final List<String> value = featureTable.get(currentFeature.getKey());
-                    value.addAll(currentFeature.getValue());
-                    featureTable.put(currentFeature.getKey(), value);
+                if (featureTable.containsKey(key)) {
+                    final List<Value> value = featureTable.get(key);
+                    value.addAll(values);
+                    featureTable.put(key, value);
                 } else {
                     //Make shallow clone to avoid making modifications directly to list inside the current feature.
-                    List<String> currentFeatureValue = currentFeature.getValue();
-                    featureTable.put(currentFeature.getKey(), currentFeatureValue != null ? new ArrayList<>(currentFeatureValue) : null);
+                    List<Value> currentFeatureValue = values;
+                    featureTable.put(key, currentFeatureValue != null ? new ArrayList<>(currentFeatureValue) : null);
                 }
             }
 
-            for (final String templateName : pluginFeatures.getAllTemplates()) {
-                templateSet.add(FileUtils.getRelativeUnixPath(ditaDir + File.separator + "dummy",
-                        pluginFeatures.getPluginDir() + File.separator + templateName));
+            for (final Value templateName : pluginFeatures.getAllTemplates()) {
+                final String template = new File(pluginFeatures.getPluginDir().toURI().resolve(templateName.value)).getAbsolutePath();
+                final String templatePath = FileUtils.getRelativeUnixPath(ditaDir + File.separator + "dummy",
+                        template);
+                templateSet.put(templatePath, templateName);
             }
             loadedPlugin.add(plugin);
             return true;
@@ -720,10 +762,33 @@ public final class Integrator {
         return true;
     }
 
+    private Document readPlugins() {
+        final File plugins = new File(ditaDir, CONFIG_DIR + File.separator + "plugins.xml");
+        if (!plugins.exists()) {
+            return null;
+        }
+        try {
+            return XMLUtils.getDocumentBuilder().parse(plugins);
+        } catch (SAXException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Set<String> getPluginIds(final Document doc) {
+        if (doc == null) {
+            return Collections.emptySet();
+        }
+        final List<Element> ps = toList(doc.getElementsByTagName("plugin"));
+        return ps.stream()
+                .filter(p -> p.getAttributeNode("id") != null)
+                .map(p -> p.getAttribute("id"))
+                .collect(Collectors.toSet());
+    }
+
     /**
-     * Parse plugin configuration files.
+     * Merge plugin configuration files.
      */
-    private void parsePlugin() {
+    private void mergePlugins() {
         final Element root = pluginsDoc.createElement(ELEM_PLUGINS);
         pluginsDoc.appendChild(root);
         if (!descSet.isEmpty()) {
@@ -744,9 +809,8 @@ public final class Integrator {
         final File plugins = new File(ditaDir, CONFIG_DIR + File.separator + "plugins.xml");
         logger.debug("Writing " + plugins);
         try {
-            final Transformer serializer = TransformerFactory.newInstance().newTransformer();
-            serializer.transform(new DOMSource(pluginsDoc), new StreamResult(plugins));
-        } catch (final TransformerConfigurationException e) {
+            new XMLUtils().writeDocument(pluginsDoc, plugins);
+        } catch (final IOException e) {
             throw new RuntimeException(e);
         }
     }
@@ -855,4 +919,12 @@ public final class Integrator {
         }
     }
 
+    /**
+     * Add ID of a plugin that has been removed.
+     *
+     * @param name plugin ID
+     */
+    public void addRemoved(String name) {
+        pluginList.remove(name);
+    }
 }

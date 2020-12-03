@@ -35,7 +35,7 @@ final class Features {
     private final Hashtable<String, List<String>> featureTable;
     private final List<PluginRequirement> requireList;
     private final Hashtable<String, String> metaTable;
-    private final List<String> templateList;
+    private final List<Value> templateList;
 
     /**
      * Constructor init pluginDir.
@@ -124,7 +124,11 @@ final class Features {
             final String valueElement = valueTokenizer.nextToken();
             if (valueElement != null && valueElement.trim().length() != 0) {
                 if (isFile && !FileUtils.isAbsolutePath(valueElement)) {
-                    valueBuffer.add(pluginDir + File.separator + valueElement.trim());
+                    if (id.equals("ant.import")) {
+                        valueBuffer.add("${dita.plugin." + this.id + ".dir}" + File.separator + valueElement.trim());
+                    } else {
+                        valueBuffer.add(pluginDir + File.separator + valueElement.trim());
+                    }
                 } else {
                     valueBuffer.add(valueElement.trim());
                 }
@@ -187,14 +191,14 @@ final class Features {
      * Add a template.
      * @param file file name
      */
-    public void addTemplate(final String file) {
+    public void addTemplate(final Value file) {
         templateList.add(file);
     }
     /**
      * get all templates.
      * @return templates list
      */
-    public List<String> getAllTemplates() {
+    public List<Value> getAllTemplates() {
         return templateList;
     }
 }

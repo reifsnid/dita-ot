@@ -11,8 +11,8 @@ See the accompanying LICENSE file for applicable license.
                 version="2.0"
                 exclude-result-prefixes="xs dita-ot dita2html ditamsg">
   
-  <xsl:include href="get-meta.xsl"/>
-  <xsl:include href="rel-links.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/get-meta.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/rel-links.xsl"/>
 
   <!-- =========== DEFAULT VALUES FOR EXTERNALLY MODIFIABLE PARAMETERS =========== -->
   
@@ -172,10 +172,6 @@ See the accompanying LICENSE file for applicable license.
         </xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
-    
-  <!-- Define the error message prefix identifier -->
-  <!-- Deprecated since 2.3 -->
-  <xsl:variable name="msgprefix">DOTX</xsl:variable>
   
   <!-- these elements are never processed in a conventional presentation. can be overridden. -->
   <xsl:template match="*[contains(@class, ' topic/no-topic-nesting ')]"/>
@@ -242,7 +238,7 @@ See the accompanying LICENSE file for applicable license.
        <!-- Do not reset xml:lang if it is already set on <html> -->
        <!-- Moved outputclass to the body tag -->
        <!-- Keep ditaval based styling at this point (replace DITA-OT 1.6 and earlier call to gen-style) -->
-       <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+       <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
      </xsl:when>
      <xsl:otherwise>
        <xsl:call-template name="commonattributes">
@@ -490,6 +486,9 @@ See the accompanying LICENSE file for applicable license.
       <xsl:when test="@type = 'trouble'">
         <xsl:apply-templates select="." mode="process.note.trouble"/>
       </xsl:when>
+      <xsl:when test="@type = 'notice'">
+        <xsl:apply-templates select="." mode="process.note.notice"/>
+      </xsl:when>
       <xsl:when test="@type = 'other'">
         <xsl:apply-templates select="." mode="process.note.other"/>
       </xsl:when>
@@ -539,6 +538,10 @@ See the accompanying LICENSE file for applicable license.
     <xsl:apply-templates select="." mode="process.note.common-processing"/>
   </xsl:template>
   
+  <xsl:template match="*" mode="process.note.notice">
+    <xsl:apply-templates select="." mode="process.note.common-processing"/>
+  </xsl:template>
+
   <xsl:template match="*" mode="process.note.other">
     <xsl:choose>
       <xsl:when test="@othertype">
@@ -566,13 +569,13 @@ See the accompanying LICENSE file for applicable license.
       <xsl:apply-templates/>
       <xsl:choose>
         <xsl:when test="@href">
-          <br/><div style="text-align:right"><a>
+          <br/><div><a>
             <xsl:attribute name="href">
               <xsl:call-template name="href"/>
             </xsl:attribute>
             <xsl:choose>
               <xsl:when test="@type = 'external'">
-                <xsl:attribute name="target">_blank</xsl:attribute>
+                <xsl:apply-templates select="." mode="external-link"/>
               </xsl:when>
               <xsl:otherwise><!--nop - no target needed for internal or biblio types (OR-should internal force DITA xref-like processing? What is intent? @type is only internal/external/bibliographic) --></xsl:otherwise>
             </xsl:choose>
@@ -582,7 +585,7 @@ See the accompanying LICENSE file for applicable license.
             </xsl:choose></cite></a></div>
         </xsl:when>
         <xsl:when test="@reftitle"> <!-- Insert citation text -->
-          <br/><div style="text-align:right"><cite><xsl:value-of select="@reftitle"/></cite></div>
+          <br/><div><cite><xsl:value-of select="@reftitle"/></cite></div>
         </xsl:when>
         <xsl:otherwise><!--nop - do nothing--></xsl:otherwise>
       </xsl:choose>
@@ -590,6 +593,10 @@ See the accompanying LICENSE file for applicable license.
     </blockquote>
   </xsl:template>
   
+  <xsl:template match="node()" mode="external-link" as="attribute()*">
+    <xsl:attribute name="target">_blank</xsl:attribute>
+    <xsl:attribute name="rel">external noopener</xsl:attribute>
+  </xsl:template>
   
   <!-- =========== SINGLE PART LISTS =========== -->
   
@@ -699,8 +706,7 @@ See the accompanying LICENSE file for applicable license.
          Maintain that for now, though may want to update in the future to keep a wrapper in all cases.
          Considering using div instead of span, with a default inline CSS style. -->
     <xsl:choose>
-      <xsl:when test="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/revprop |
-                      *[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass">
+      <xsl:when test="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/revprop">
         <span>
           <xsl:call-template name="commonattributes"/>
           <xsl:apply-templates/>
@@ -751,8 +757,8 @@ See the accompanying LICENSE file for applicable license.
     </xsl:variable>
     <dt>
       <!-- Get xml:lang and ditaval styling from DLENTRY, then override with local -->
-      <xsl:apply-templates select="../@xml:lang"/> 
-      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+      <xsl:apply-templates select="../@xml:lang"/>
+      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
       <xsl:for-each select="..">
         <xsl:call-template name="commonattributes"/>
       </xsl:for-each>
@@ -826,7 +832,7 @@ See the accompanying LICENSE file for applicable license.
   <xsl:template match="*[contains(@class, ' topic/dthd ')]" name="topic.dthd">
     <dt>
       <!-- Get ditaval style and xml:lang from DLHEAD, then override with local -->
-      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
       <xsl:apply-templates select="../@xml:lang"/>
       <xsl:call-template name="commonattributes"/>
       <xsl:call-template name="setidaname"/>
@@ -842,7 +848,7 @@ See the accompanying LICENSE file for applicable license.
   <xsl:template match="*[contains(@class, ' topic/ddhd ')]" name="topic.ddhd">
     <dd>
       <!-- Get ditaval style and xml:lang from DLHEAD, then override with local -->
-      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+      <xsl:apply-templates select="../*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
       <xsl:apply-templates select="../@xml:lang"/>
       <xsl:call-template name="commonattributes"/>
       <xsl:call-template name="setidaname"/>
@@ -1218,7 +1224,7 @@ See the accompanying LICENSE file for applicable license.
   <!-- Use color to indicate these types for now -->
   <!-- output the tag & it's state -->
   <xsl:template match="*[contains(@class, ' topic/boolean ')]" name="topic.boolean">
-   <span style="color:green">
+   <span>
     <xsl:call-template name="commonattributes"/>
     <xsl:call-template name="setidaname"/>
     <xsl:value-of select="name()"/><xsl:text>: </xsl:text><xsl:value-of select="@state"/>
@@ -1227,7 +1233,7 @@ See the accompanying LICENSE file for applicable license.
   
   <!-- output the tag, it's name & value -->
   <xsl:template match="*[contains(@class, ' topic/state ')]" name="topic.state">
-  <span style="color:red">
+  <span>
     <xsl:call-template name="commonattributes"/>
     <xsl:call-template name="setidaname"/>
     <xsl:value-of select="name()"/><xsl:text>: </xsl:text><xsl:value-of select="@name"/><xsl:text>=</xsl:text><xsl:value-of select="@value"/>
@@ -1631,14 +1637,14 @@ See the accompanying LICENSE file for applicable license.
        <xsl:when test="@keyref and @href">
          <a>
            <xsl:apply-templates select="." mode="add-linking-attributes"/>
-           <span style="margin: 1pt; background-color: #ffddff; border: 1pt black solid;">
+           <span>
              <xsl:call-template name="commonattributes"/>
              <xsl:apply-templates/>
            </span>
          </a>
        </xsl:when>
        <xsl:otherwise>
-         <span style="margin: 1pt; background-color: #ffddff; border: 1pt black solid;">
+         <span>
            <xsl:call-template name="commonattributes"/>
            <xsl:apply-templates/>
          </span>
@@ -1714,17 +1720,39 @@ See the accompanying LICENSE file for applicable license.
     <xsl:param name="default-output-class"/>
     <xsl:apply-templates select="@xml:lang"/>
     <xsl:apply-templates select="@dir"/>
-    <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+    <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
     <xsl:apply-templates select="." mode="set-output-class">
       <xsl:with-param name="default" select="$default-output-class"/>
     </xsl:apply-templates>
-    <xsl:if test="exists($passthrough-attrs)">
-      <xsl:for-each select="@*">
-        <xsl:if test="$passthrough-attrs[@att = name(current()) and (empty(@val) or (some $v in tokenize(current(), '\s+') satisfies $v = @val))]">
+    <xsl:choose>
+      <xsl:when test="exists($passthrough-attrs[empty(@att) and empty(@value)])">
+        <xsl:variable name="specializations" as="xs:string*">
+          <xsl:for-each select="ancestor-or-self::*[@domains][1]/@domains">
+            <xsl:analyze-string select="normalize-space(.)" regex="a\(props (.+?)\)">
+              <xsl:matching-substring>
+                <xsl:sequence select="tokenize(regex-group(1), '\s+')"/>
+              </xsl:matching-substring>
+            </xsl:analyze-string>
+          </xsl:for-each>
+        </xsl:variable>
+        <xsl:for-each select="@props |
+                              @audience |
+                              @platform |
+                              @product |
+                              @otherprops |
+                              @deliveryTarget |
+                              @*[local-name() = $specializations]">
           <xsl:attribute name="data-{name()}" select="."/>
-        </xsl:if>
-      </xsl:for-each>
-    </xsl:if>
+        </xsl:for-each>
+      </xsl:when>
+      <xsl:when test="exists($passthrough-attrs)">
+        <xsl:for-each select="@*">
+          <xsl:if test="$passthrough-attrs[@att = name(current()) and (empty(@val) or (some $v in tokenize(current(), '\s+') satisfies $v = @val))]">
+            <xsl:attribute name="data-{name()}" select="."/>
+          </xsl:if>
+        </xsl:for-each>
+      </xsl:when>
+    </xsl:choose>
   </xsl:template>
   
   <!-- Set the class attribute on the resulting output element. The default for a class of elements
@@ -1741,6 +1769,8 @@ See the accompanying LICENSE file for applicable license.
         <xsl:sequence select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/revprop/@val"/>
       </xsl:if>
     </xsl:variable>
+    <xsl:variable name="flag-outputclass" as="xs:string*"
+      select="tokenize(normalize-space(*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass), '\s+')"/>
     <xsl:variable name="using-output-class" as="xs:string*">
      <xsl:choose>
        <xsl:when test="string-length(normalize-space($output-class)) > 0">
@@ -1769,9 +1799,10 @@ See the accompanying LICENSE file for applicable license.
                   select="tokenize($ancestry, '\s+'),
                           $using-output-class,
                           $draft-revs, 
-                          tokenize($outputclass-attribute, '\s+')"/>
+                          tokenize($outputclass-attribute, '\s+'),
+                          $flag-outputclass"/>
     <xsl:if test="exists($classes)">
-      <xsl:attribute name="class" select="string-join(distinct-values($classes), ' ')"/>
+      <xsl:attribute name="class" select="distinct-values($classes)" separator=" "/>
     </xsl:if>
   </xsl:template>
     
@@ -2239,9 +2270,9 @@ See the accompanying LICENSE file for applicable license.
     <head>
       <!-- initial meta information -->
       <xsl:call-template name="generateCharset"/>   <!-- Set the character set to UTF-8 -->
-      <xsl:call-template name="generateDefaultCopyright"/> <!-- Generate a default copyright, if needed -->
+      <xsl:apply-templates select="." mode="generateDefaultCopyright"/> <!-- Generate a default copyright, if needed -->
       <xsl:call-template name="generateDefaultMeta"/> <!-- Standard meta for security, robots, etc -->
-      <xsl:call-template name="getMeta"/>           <!-- Process metadata from topic prolog -->
+      <xsl:apply-templates select="." mode="getMeta"/> <!-- Process metadata from topic prolog -->
       <xsl:call-template name="copyright"/>         <!-- Generate copyright, if specified manually -->
       <xsl:call-template name="generateCssLinks"/>  <!-- Generate links to CSS files -->
       <xsl:call-template name="generateChapterTitle"/> <!-- Generate the <title> element -->
@@ -2251,10 +2282,15 @@ See the accompanying LICENSE file for applicable license.
       <xsl:call-template name="processHDF"/>        <!-- Add user HDF file, if specified -->
     </head>
   </xsl:template>
-    
-  <!-- If there is no copyright in the document, make the standard one -->
+
+  <!-- Deprecated since 3.6 -->
   <xsl:template name="generateDefaultCopyright">
-    <xsl:if test="not(//*[contains(@class, ' topic/copyright ')])">
+    <xsl:apply-templates select="." mode="generateDefaultCopyright"/>
+  </xsl:template>
+
+  <!-- If there is no copyright in the document, make the standard one -->
+  <xsl:template match="@* | node()" mode="generateDefaultCopyright">
+    <xsl:if test="empty(//*[contains(@class, ' topic/copyright ')])">
       <meta name="copyright">
         <xsl:attribute name="content">
           <xsl:text>(C) </xsl:text>
@@ -2263,15 +2299,6 @@ See the accompanying LICENSE file for applicable license.
           </xsl:call-template>
           <xsl:text> </xsl:text>
           <xsl:value-of select="$YEAR"/>
-        </xsl:attribute>
-      </meta>
-      <meta name="DC.rights.owner">
-        <xsl:attribute name="content">
-          <xsl:text>(C) </xsl:text>
-          <xsl:call-template name="getVariable">
-            <xsl:with-param name="id" select="'Copyright'"/>
-          </xsl:call-template>
-          <xsl:text> </xsl:text><xsl:value-of select="$YEAR"/>
         </xsl:attribute>
       </meta>
     </xsl:if>
@@ -2287,14 +2314,17 @@ See the accompanying LICENSE file for applicable license.
   
   <!-- Generate links to CSS files -->
   <xsl:template name="generateCssLinks">
-    <xsl:variable name="childlang">
-      <xsl:choose>
-        <!-- Update with DITA 1.2: /dita can have xml:lang -->
-        <xsl:when test="self::dita[not(@xml:lang)]">
-          <xsl:for-each select="*[1]"><xsl:call-template name="getLowerCaseLang"/></xsl:for-each>
-        </xsl:when>
-        <xsl:otherwise><xsl:call-template name="getLowerCaseLang"/></xsl:otherwise>
-      </xsl:choose>
+    <xsl:variable name="childlang" as="xs:string">
+      <xsl:variable name="lang">
+        <xsl:choose>
+          <!-- Update with DITA 1.2: /dita can have xml:lang -->
+          <xsl:when test="self::dita[not(@xml:lang)]">
+            <xsl:for-each select="*[1]"><xsl:call-template name="getLowerCaseLang"/></xsl:for-each>
+          </xsl:when>
+          <xsl:otherwise><xsl:call-template name="getLowerCaseLang"/></xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <xsl:sequence select="($lang, $DEFAULTLANG)[normalize-space(.)][1]"/>
     </xsl:variable>
     <xsl:variable name="direction">
       <xsl:apply-templates select="." mode="get-render-direction">
@@ -2378,7 +2408,7 @@ See the accompanying LICENSE file for applicable license.
   <!-- Add all attributes. To add your own additional attributes, use mode="addAttributesToBody". -->
   <xsl:template match="*" mode="addAttributesToHtmlBodyElement">
     <!-- Already put xml:lang on <html>; do not copy to body with commonattributes -->
-    <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@outputclass" mode="add-ditaval-style"/>
+    <xsl:apply-templates select="*[contains(@class, ' ditaot-d/ditaval-startprop ')]/@style" mode="add-ditaval-style"/>
     <!--output parent or first "topic" tag's outputclass as class -->
     <xsl:if test="@outputclass">
       <xsl:attribute name="class" select="@outputclass"/>
@@ -2398,6 +2428,10 @@ See the accompanying LICENSE file for applicable license.
   <xsl:template match="*" mode="addAttributesToBody">
   </xsl:template>
 
+  <xsl:attribute-set name="banner">
+    <xsl:attribute name="role">banner</xsl:attribute>
+  </xsl:attribute-set>
+
   <!-- Process <body> content that is appropriate for HTML5 header section. -->
   <xsl:template match="*" mode="addHeaderToHtmlBodyElement">
     <xsl:variable name="header-content" as="node()*">
@@ -2411,15 +2445,24 @@ See the accompanying LICENSE file for applicable license.
     </xsl:variable>
 
     <xsl:if test="exists($header-content)">
-      <header role="banner">
+      <header xsl:use-attribute-sets="banner">
         <xsl:sequence select="$header-content"/>
       </header>
     </xsl:if>
   </xsl:template>
 
+  <xsl:attribute-set name="main">
+    <xsl:attribute name="role">main</xsl:attribute>
+  </xsl:attribute-set>
+
+  <xsl:attribute-set name="article">
+    <xsl:attribute name="role">article</xsl:attribute>
+  </xsl:attribute-set>
+  
+
   <xsl:template match="*" mode="addContentToHtmlBodyElement">
-    <main role="main">
-      <article role="article">
+    <main xsl:use-attribute-sets="main">
+      <article xsl:use-attribute-sets="article">
         <xsl:attribute name="aria-labelledby">
           <xsl:apply-templates select="*[contains(@class,' topic/title ')] |
                                        self::dita/*[1]/*[contains(@class,' topic/title ')]" mode="return-aria-label-id"/>
@@ -2437,13 +2480,18 @@ See the accompanying LICENSE file for applicable license.
     </main>
   </xsl:template>
 
+  <xsl:attribute-set name="footer">
+    <xsl:attribute name="role">contentinfo</xsl:attribute>
+  </xsl:attribute-set>
+  
+
   <xsl:template match="*" mode="addFooterToHtmlBodyElement">
     <xsl:variable name="footer-content" as="node()*">
       <xsl:call-template name="gen-user-footer"/> <!-- include user's XSL running footer here -->
       <xsl:call-template name="processFTR"/>      <!-- Include XHTML footer, if specified -->
     </xsl:variable>
     <xsl:if test="exists($footer-content)">
-      <footer role="contentinfo">
+      <footer xsl:use-attribute-sets="footer">
         <xsl:sequence select="$footer-content"/>
       </footer>
     </xsl:if>
@@ -2607,12 +2655,13 @@ See the accompanying LICENSE file for applicable license.
     </xsl:call-template>
   </xsl:template>
 
-  <xsl:include href="tables.xsl"/>
-  <xsl:include href="simpletable.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/tables.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/simpletable.xsl"/>
   
   <xsl:key name="enumerableByClass"
     match="*[contains(@class, ' topic/fig ')][*[contains(@class, ' topic/title ')]] |
     *[contains(@class, ' topic/table ')][*[contains(@class, ' topic/title ')]] |
+    *[contains(@class, ' topic/simpletable ')][*[contains(@class, ' topic/title ')]] |
     *[contains(@class,' topic/fn ') and empty(@callout)]"
     use="tokenize(@class, '\s+')"/>
   
@@ -2728,7 +2777,7 @@ See the accompanying LICENSE file for applicable license.
     </xsl:choose>
   </xsl:template>
   
-  <xsl:include href="css-class.xsl"/>
+  <xsl:include href="plugin:org.dita.html5:xsl/css-class.xsl"/>
   <xsl:include href="plugin:org.dita.html5:xsl/functions.xsl"/>
 
 </xsl:stylesheet>

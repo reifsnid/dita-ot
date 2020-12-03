@@ -28,16 +28,8 @@ See the accompanying LICENSE file for applicable license.
             depends="dita.map.xhtml.init, dita.map.xhtml.toc" />
 
     <target name="dita.map.xhtml.init" unless="noMap">
-      <condition property="args.xhtml.toc.xsl" value="${dita.plugin.org.dita.xhtml.dir}/xsl/map2${html-version}-cover.xsl">
-        <not>
-          <isset property="args.xhtml.toc.xsl" />
-        </not>
-      </condition>
-        <condition property="args.xhtml.toc" value="index">
-            <not>
-                <isset property="args.xhtml.toc" />
-            </not>
-        </condition>
+      <property name="args.xhtml.toc.xsl" value="${dita.plugin.org.dita.xhtml.dir}/xsl/map2${html-version}-cover.xsl"/>
+      <property name="args.xhtml.toc" value="index"/>
     </target>
     
 
@@ -60,7 +52,7 @@ See the accompanying LICENSE file for applicable license.
       <pipeline>
       <xslt destdir="${xhtml.toc.output.dir}"
             style="${args.xhtml.toc.xsl}">
-        <ditafileset input="true"/>
+        <ditafileset input="true" format="ditamap"/>
         <param name="OUTEXT" expression="${out.ext}" if:set="out.ext" />
         <param name="contenttarget" expression="${args.xhtml.contenttarget}" if:set="args.xhtml.contenttarget"/>
         <param name="CSS" expression="${args.css.file}" if:set="args.css.file" />
@@ -117,7 +109,7 @@ See the accompanying LICENSE file for applicable license.
       <fileset dir="${dita.plugin.org.dita.xhtml.dir}/resource" includes="*.css"/>
     </copy>
     <!-- Copy user specify css file when required -->
-    <antcall target="copy-css-user"/>
+    <antcall target="copy-css-user" inheritRefs="true"/>
   </target>
 
   <target name="copy-css-user" if="user.copycss.yes">

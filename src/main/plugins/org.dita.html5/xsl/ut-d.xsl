@@ -21,7 +21,6 @@ See the accompanying LICENSE file for applicable license.
   
       <!-- the image -->
       <img usemap="#{generate-id()}">
-        <!-- Border attribute defaults to 0 -->
         <xsl:apply-templates select="." mode="imagemap-border-attribute"/>
         <!-- Process the 'normal' image attributes, using this special mode -->
         <xsl:apply-templates select="*[contains(@class,' topic/image ')]" mode="imagemap-image"/>
@@ -91,9 +90,7 @@ See the accompanying LICENSE file for applicable license.
     </div>
   </xsl:template>
   
-  <!-- Set the border attribute on an imagemap; default is to always use border="0" -->
   <xsl:template match="*[contains(@class,' ut-d/imagemap ')]" mode="imagemap-border-attribute">
-    <xsl:attribute name="border">0</xsl:attribute>
   </xsl:template>
   
   <!-- In the context of IMAGE - call these attribute processors -->
@@ -123,7 +120,7 @@ See the accompanying LICENSE file for applicable license.
   <xsl:template match="*[contains(@class, ' topic/xref ')]" mode="imagemap-xref">
    <xsl:attribute name="href"><xsl:call-template name="href"/></xsl:attribute>
    <xsl:if test="@scope='external' or @type='external' or ((@format='PDF' or @format='pdf') and not(@scope='local'))">
-    <xsl:attribute name="target">_blank</xsl:attribute>
+     <xsl:apply-templates select="." mode="external-link"/>
    </xsl:if>
   </xsl:template>
   

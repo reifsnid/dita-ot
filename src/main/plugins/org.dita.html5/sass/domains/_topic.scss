@@ -4,7 +4,7 @@
 //
 // See the accompanying LICENSE file for applicable license.
 
-// block 
+// block
 .abstract {
 }
 
@@ -141,6 +141,9 @@
 }
 
 .lq {
+  div {
+    text-align: right;
+  }
 }
 
 .metadata {
@@ -275,8 +278,9 @@
 .vrmlist {
 }
 
-// inline 
+// inline
 .boolean {
+  color: green;
 }
 
 .cite {
@@ -304,6 +308,7 @@
 }
 
 .state {
+  color: red;
 }
 
 .term {

@@ -97,7 +97,6 @@ See the accompanying LICENSE file for applicable license.
 
     <xsl:template match="*[contains(@class, ' topic/dt ')]">
         <fo:block xsl:use-attribute-sets="dlentry.dt__content">
-            <xsl:call-template name="commonattributes"/>
             <xsl:if test="not(preceding-sibling::*[contains(@class,' topic/dt ')])">
               <xsl:apply-templates select="../*[contains(@class,' ditaot-d/ditaval-startprop ')]" mode="outofline"/>
             </xsl:if>
@@ -172,11 +171,11 @@ See the accompanying LICENSE file for applicable license.
          skip to next row. Currently known to match ditaval-startprop when flagging used on simpletable
          as well as suitesol:changebar-start when revision bar used on sthead or stentry. -->
     <xsl:template match="*" mode="count-max-simpletable-cells" as="xs:integer">
-      <xsl:param name="maxcount" select="0" as="xs:integer"/>
-      <xsl:apply-templates select="following-sibling::*[1]" mode="count-max-simpletable-cells">
-        <xsl:with-param name="maxcount" select="$maxcount"/>
-      </xsl:apply-templates>
+      <xsl:variable name="simpletable" select="ancestor-or-self::*[contains(@class, ' topic/simpletable ')][1]"/>
+      <xsl:variable name="xs" as="xs:integer+" select="$simpletable//@dita-ot:x/xs:integer(.)"/>
+      <xsl:sequence select="max($xs)"/>
     </xsl:template>
+  
     <!-- Count the max number of cells in any row of a simpletable -->
     <xsl:template match="*[contains(@class, ' topic/sthead ')] | *[contains(@class, ' topic/strow ')]" mode="count-max-simpletable-cells" as="xs:integer">
       <xsl:param name="maxcount" select="0" as="xs:integer"/>
@@ -313,7 +312,9 @@ See the accompanying LICENSE file for applicable license.
     </xsl:template>
   
   <xsl:template match="*[contains(@class, ' topic/table ')]/*[contains(@class, ' topic/title ')]" mode="table.title-number">
-    <xsl:value-of select="count(key('enumerableByClass', 'topic/table')[. &lt;&lt; current()])"/>
+    <xsl:value-of select="count((key('enumerableByClass', 'topic/table') | key('enumerableByClass', 'topic/simpletable'))
+                                [. &lt;&lt; current()]
+                                [dita-ot:notExcludedByDraftElement(.)])"/>
   </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/tgroup ')]" name="tgroup">
@@ -428,12 +429,25 @@ See the accompanying LICENSE file for applicable license.
             <xsl:call-template name="applySpansAttrs"/>
             <xsl:call-template name="applyAlignAttrs"/>
             <xsl:call-template name="generateTableEntryBorder"/>
-            <fo:block xsl:use-attribute-sets="thead.row.entry__content">
-                <xsl:apply-templates select="." mode="ancestor-start-flag"/>
-                <xsl:call-template name="processEntryContent"/>
-                <xsl:apply-templates select="." mode="ancestor-end-flag"/>
-            </fo:block>
+            <xsl:choose>
+                <xsl:when test="@rotate eq '1'">
+                    <xsl:apply-templates select="." mode="rotateTableEntryContent"/>
+                </xsl:when>
+                <xsl:otherwise>
+                    <fo:block xsl:use-attribute-sets="thead.row.entry__content">
+                        <xsl:call-template name="processEntryContent"/>
+                    </fo:block>
+                </xsl:otherwise>
+                </xsl:choose>
         </fo:table-cell>
+    </xsl:template>
+    
+    <xsl:template match="*[contains(@class, ' topic/thead ')]/*[contains(@class, ' topic/row ')]/*[contains(@class, ' topic/entry ')]" mode="rotateTableEntryContent">
+        <fo:block-container reference-orientation="90">
+            <fo:block xsl:use-attribute-sets="thead.row.entry__content">
+                <xsl:call-template name="processEntryContent"/>
+            </fo:block>
+        </fo:block-container>
     </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/tbody ')]/*[contains(@class, ' topic/row ')]/*[contains(@class, ' topic/entry ')]">
@@ -458,11 +472,24 @@ See the accompanying LICENSE file for applicable license.
         <xsl:call-template name="applySpansAttrs"/>
         <xsl:call-template name="applyAlignAttrs"/>
         <xsl:call-template name="generateTableEntryBorder"/>
-        <fo:block xsl:use-attribute-sets="tbody.row.entry__content">
-            <xsl:apply-templates select="." mode="ancestor-start-flag"/>
-            <xsl:call-template name="processEntryContent"/>
-            <xsl:apply-templates select="." mode="ancestor-end-flag"/>
-        </fo:block>
+        <xsl:choose>
+            <xsl:when test="@rotate eq '1'">
+                <xsl:apply-templates select="." mode="rotateTableEntryContent"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <fo:block xsl:use-attribute-sets="tbody.row.entry__content">
+                    <xsl:call-template name="processEntryContent"/>
+                </fo:block>
+            </xsl:otherwise>
+            </xsl:choose>
+    </xsl:template>
+    
+    <xsl:template match="*[contains(@class, ' topic/tbody ')]/*[contains(@class, ' topic/row ')]/*[contains(@class, ' topic/entry ')]" mode="rotateTableEntryContent">
+        <fo:block-container reference-orientation="90">
+            <fo:block xsl:use-attribute-sets="tbody.row.entry__content">
+                <xsl:call-template name="processEntryContent"/>
+            </fo:block>
+        </fo:block-container>
     </xsl:template>
 
     <xsl:template name="processEntryContent">
@@ -491,6 +518,7 @@ See the accompanying LICENSE file for applicable license.
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
+        <xsl:apply-templates select="." mode="ancestor-start-flag"/>
         <xsl:choose>
             <xsl:when test="exists($char) and string-length($char) ne 0">
                 <xsl:call-template name="processCharAlignment">
@@ -502,13 +530,14 @@ See the accompanying LICENSE file for applicable license.
                 <xsl:apply-templates/>
             </xsl:otherwise>
         </xsl:choose>
+        <xsl:apply-templates select="." mode="ancestor-end-flag"/>
     </xsl:template>
 
   <xsl:template name="processCharAlignment">
     <xsl:param name="char" as="xs:string"/>
     <xsl:param name="charoff" as="xs:integer"/>
         <xsl:choose>
-            <xsl:when test="not(descendant::*)">
+            <xsl:when test="not(descendant::* | descendant::processing-instruction() | descendant::comment())">
                 <xsl:variable name="text-before" select="substring-before(text(), $char)"/>
                 <xsl:variable name="text-after" select="substring-after(text(), $text-before)"/>
                 <fo:list-block start-indent="0pt"
@@ -840,6 +869,7 @@ See the accompanying LICENSE file for applicable license.
             <xsl:apply-templates select="*[1]" mode="count-max-simpletable-cells"/>
         </xsl:variable>
         <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-startprop ')]" mode="outofline"/>
+        <xsl:apply-templates select="*[contains(@class, ' topic/title ')]"/>
         <fo:table xsl:use-attribute-sets="simpletable">
             <xsl:call-template name="commonattributes"/>
             <xsl:call-template name="globalAtts"/>
@@ -861,7 +891,7 @@ See the accompanying LICENSE file for applicable license.
             <!-- Toss processing to another template to process the simpletable
                  heading, and/or create a default table heading row. -->
             <xsl:apply-templates select="." mode="dita2xslfo:simpletable-heading">
-                <xsl:with-param name="number-cells" select="$number-cells"/>
+              <xsl:with-param name="number-cells" select="$number-cells" tunnel="yes"/>
             </xsl:apply-templates>
 
             <fo:table-body xsl:use-attribute-sets="simpletable__body">
@@ -875,15 +905,39 @@ See the accompanying LICENSE file for applicable license.
                   </xsl:when>
                   <xsl:otherwise>
                     <xsl:apply-templates select="*[contains(@class, ' topic/strow ')]">
-                        <xsl:with-param name="number-cells" select="$number-cells"/>
+                      <xsl:with-param name="number-cells" select="$number-cells" tunnel="yes"/>
                     </xsl:apply-templates>
                   </xsl:otherwise>
                 </xsl:choose>
             </fo:table-body>
-
         </fo:table>
         <xsl:apply-templates select="*[contains(@class,' ditaot-d/ditaval-endprop ')]" mode="outofline"/>
     </xsl:template>
+  
+  <xsl:template match="*[contains(@class, ' topic/simpletable ')]/*[contains(@class, ' topic/title ')]">
+    <fo:block xsl:use-attribute-sets="table.title">
+      <xsl:call-template name="commonattributes"/>
+      <xsl:apply-templates select="." mode="customTitleAnchor"/>
+      <xsl:call-template name="getVariable">
+        <xsl:with-param name="id" select="'Table.title'"/>
+        <xsl:with-param name="params">
+          <number>
+            <xsl:apply-templates select="." mode="table.title-number"/>
+          </number>
+          <title>
+            <xsl:apply-templates/>
+          </title>
+        </xsl:with-param>
+      </xsl:call-template>
+    </fo:block>
+  </xsl:template>
+  
+  <xsl:template match="*[contains(@class, ' topic/simpletable ')]/*[contains(@class, ' topic/title ')]" mode="table.title-number">
+    <xsl:value-of select="count((key('enumerableByClass', 'topic/table') | key('enumerableByClass', 'topic/simpletable'))
+                                [. &lt;&lt; current()]
+                                [dita-ot:notExcludedByDraftElement(.)])"/>
+  </xsl:template>
+  
   
     <xsl:template match="*[contains(@class,' topic/simpletable ')]
         [empty(*[contains(@class,' topic/strow ')]/*[contains(@class,' topic/stentry ')])]" priority="10"/>
@@ -935,53 +989,73 @@ See the accompanying LICENSE file for applicable license.
          default headings for the table. By default, the existing sthead
          element is used when specified. -->
     <xsl:template match="*[contains(@class, ' topic/simpletable ')]" mode="dita2xslfo:simpletable-heading">
-        <xsl:param name="number-cells" as="xs:integer">
+        <xsl:param name="number-cells" as="xs:integer" tunnel="yes">
             <xsl:apply-templates select="*[1]" mode="count-max-simpletable-cells"/>
         </xsl:param>
         <xsl:apply-templates select="*[contains(@class, ' topic/sthead ')]">
-            <xsl:with-param name="number-cells" select="$number-cells"/>
+            <xsl:with-param name="number-cells" select="$number-cells" tunnel="yes"/>
         </xsl:apply-templates>
     </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/sthead ')]">
-      <xsl:param name="number-cells" as="xs:integer">
+      <xsl:param name="number-cells" as="xs:integer" tunnel="yes">
             <xsl:apply-templates select="../*[1]" mode="count-max-simpletable-cells"/>
         </xsl:param>
         <fo:table-header xsl:use-attribute-sets="sthead">
             <xsl:call-template name="commonattributes"/>
             <fo:table-row xsl:use-attribute-sets="sthead__row">
                 <xsl:apply-templates select="*[contains(@class, ' topic/stentry ')]"/>
-                <xsl:variable name="row-cell-count" select="count(*[contains(@class, ' topic/stentry ')])" as="xs:integer"/>
+                <!--
+                <xsl:variable name="row-cell-count" as="xs:integer">
+                  <xsl:variable name="last" select="*[contains(@class, ' topic/stentry ')][last()]"/>
+                  <xsl:variable name="span" select="if (exists($last/@colspan)) then (xs:integer($last/@colspan) - 1) else 0"/>
+                  <xsl:sequence select="xs:integer($last/@dita-ot:x) + $span"/>
+                </xsl:variable>
                 <xsl:if test="$row-cell-count &lt; $number-cells">
                     <xsl:apply-templates select="." mode="fillInMissingSimpletableCells">
                         <xsl:with-param name="fill-in-count" select="$number-cells - $row-cell-count"/>
                     </xsl:apply-templates>
                 </xsl:if>
+                -->
             </fo:table-row>
         </fo:table-header>
     </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/strow ')]">
-        <xsl:param name="number-cells" as="xs:integer">
+        <xsl:param name="number-cells" as="xs:integer" tunnel="yes">
             <xsl:apply-templates select="../*[1]" mode="count-max-simpletable-cells"/>
         </xsl:param>
         <fo:table-row xsl:use-attribute-sets="strow">
             <xsl:call-template name="commonattributes"/>
             <xsl:apply-templates select="*[contains(@class, ' topic/stentry ')]"/>
-            <xsl:variable name="row-cell-count" select="count(*[contains(@class, ' topic/stentry ')])" as="xs:integer"/>
+            <!--
+            <xsl:variable name="row-cell-count" as="xs:integer">
+              <xsl:variable name="last" select="*[contains(@class, ' topic/stentry ')][last()]"/>
+              <xsl:variable name="span" select="if (exists($last/@colspan)) then (xs:integer($last/@colspan) - 1) else 0"/>
+              <xsl:sequence select="xs:integer($last/@dita-ot:x) + $span"/>
+            </xsl:variable>
             <xsl:if test="$row-cell-count &lt; $number-cells">
                 <xsl:apply-templates select="." mode="fillInMissingSimpletableCells">
                     <xsl:with-param name="fill-in-count" select="$number-cells - $row-cell-count"/>
                 </xsl:apply-templates>
             </xsl:if>
+            -->
         </fo:table-row>
     </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/sthead ')]/*[contains(@class, ' topic/stentry ')]">
+        <xsl:param name="number-cells" as="xs:integer" tunnel="yes">
+          <xsl:apply-templates select="../.." mode="count-max-simpletable-cells"/>
+        </xsl:param>
         <fo:table-cell xsl:use-attribute-sets="sthead.stentry">
             <xsl:call-template name="commonattributes"/>
-            <xsl:variable name="entryCol" select="count(preceding-sibling::*[contains(@class, ' topic/stentry ')]) + 1"/>
+            <xsl:call-template name="simpletableApplySpansAttrs"/>
+            <xsl:variable name="entryCol" select="@dita-ot:x"/>
             <xsl:variable name="frame" as="xs:string" select="(ancestor::*[contains(@class, ' topic/simpletable ')][1]/@frame, $table.frame-default)[1]"/>
+            <xsl:variable name="last-column" as="xs:integer">
+              <xsl:variable name="span" select="if (exists(@colspan)) then (xs:integer(@colspan) - 1) else 0"/>
+              <xsl:sequence select="xs:integer(@dita-ot:x) + $span"/>
+            </xsl:variable>
 
             <xsl:apply-templates select="." mode="simpletableHorizontalBorders">
                 <xsl:with-param name="frame" select="$frame" as="xs:string"/>
@@ -989,7 +1063,8 @@ See the accompanying LICENSE file for applicable license.
             <xsl:apply-templates select="." mode="simpletableTopBorder">
                 <xsl:with-param name="frame" select="$frame" as="xs:string"/>
             </xsl:apply-templates>
-            <xsl:if test="following-sibling::*[contains(@class, ' topic/stentry ')]">
+          
+          <xsl:if test="$number-cells ne $last-column">
                 <xsl:apply-templates select="." mode="simpletableVerticalBorders">
                     <xsl:with-param name="frame" select="$frame" as="xs:string"/>
                 </xsl:apply-templates>
@@ -1015,17 +1090,25 @@ See the accompanying LICENSE file for applicable license.
     </xsl:template>
 
     <xsl:template match="*[contains(@class, ' topic/strow ')]/*[contains(@class, ' topic/stentry ')]">
+        <xsl:param name="number-cells" as="xs:integer" tunnel="yes">
+          <xsl:apply-templates select="../.." mode="count-max-simpletable-cells"/>
+        </xsl:param>
         <fo:table-cell xsl:use-attribute-sets="strow.stentry">
             <xsl:call-template name="commonattributes"/>
-            <xsl:variable name="entryCol" select="count(preceding-sibling::*[contains(@class, ' topic/stentry ')]) + 1"/>
+            <xsl:call-template name="simpletableApplySpansAttrs"/>
+            <xsl:variable name="entryCol" select="@dita-ot:x"/>
             <xsl:variable name="frame" as="xs:string" select="(ancestor::*[contains(@class, ' topic/simpletable ')][1]/@frame, $table.frame-default)[1]"/>
+            <xsl:variable name="last-column" as="xs:integer">
+              <xsl:variable name="span" select="if (exists(@colspan)) then (xs:integer(@colspan) - 1) else 0"/>
+              <xsl:sequence select="xs:integer(@dita-ot:x) + $span"/>
+            </xsl:variable>
 
             <xsl:if test="../following-sibling::*[contains(@class, ' topic/strow ')]">
                 <xsl:apply-templates select="." mode="simpletableHorizontalBorders">
                     <xsl:with-param name="frame" select="$frame" as="xs:string"/>
                 </xsl:apply-templates>
             </xsl:if>
-            <xsl:if test="following-sibling::*[contains(@class, ' topic/stentry ')]">
+            <xsl:if test="$number-cells ne $last-column">
                 <xsl:apply-templates select="." mode="simpletableVerticalBorders">
                     <xsl:with-param name="frame" select="$frame" as="xs:string"/>
                 </xsl:apply-templates>
@@ -1049,6 +1132,15 @@ See the accompanying LICENSE file for applicable license.
             </xsl:choose>
         </fo:table-cell>
     </xsl:template>
+  
+  <xsl:template name="simpletableApplySpansAttrs">
+    <xsl:if test="exists(@rowspan) and xs:integer(@rowspan) gt 1">
+      <xsl:attribute name="number-rows-spanned" select="xs:integer(@rowspan)"/>
+    </xsl:if>
+    <xsl:if test="exists(@colspan) and xs:integer(@colspan) gt 1">
+      <xsl:attribute name="number-columns-spanned" select="xs:integer(@colspan)"/>
+    </xsl:if>
+  </xsl:template>
 
     <xsl:template match="*" mode="simpletableHorizontalBorders">
         <xsl:param name="frame" select="(ancestor-or-self::*[contains(@class, ' topic/simpletable ')][1]/@frame, $table.frame-default)[1]"
@@ -1092,7 +1184,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:template name="generateSimpleTableHorizontalBorders">
         <xsl:param name="frame" as="xs:string?"/>
         <xsl:choose>
-            <xsl:when test="$frame = ('all', 'topbot', 'sides') or empty($frame)">
+            <xsl:when test="$frame = ('all', 'topbot') or empty($frame)">
                 <xsl:call-template name="processAttrSetReflection">
                     <xsl:with-param name="attrSet" select="'__tableframe__bottom'"/>
                     <xsl:with-param name="path" select="$tableAttrs"/>
@@ -1104,7 +1196,7 @@ See the accompanying LICENSE file for applicable license.
     <xsl:template name="generateSimpleTableVerticalBorders">
         <xsl:param name="frame" as="xs:string?"/>
         <xsl:choose>
-            <xsl:when test="$frame = ('all', 'topbot', 'sides') or empty($frame)">
+            <xsl:when test="$frame = ('all', 'sides') or empty($frame)">
                 <xsl:call-template name="processAttrSetReflection">
                     <xsl:with-param name="attrSet" select="'__tableframe__right'"/>
                     <xsl:with-param name="path" select="$tableAttrs"/>

@@ -3,7 +3,8 @@
 _DITA Open Toolkit_, or _DITA-OT_ for short, is an open-source publishing engine for XML content authored in the _Darwin Information Typing Architecture_.
 
 Visit the project website at [dita-ot.org][site] for documentation, information about releases, and [download packages][dist].  
-For information on additional DITA and DITA-OT resources, see [SUPPORT].
+
+For information on additional DITA and DITA-OT resources, see [SUPPORT]. To report a bug or suggest a feature, [create an issue][issue]. For more information on how you can help contribute to the project, see [CONTRIBUTING].
 
 - [Prerequisites: Java 8](#prerequisites-java-8)
 - [Installing](#installing)
@@ -94,13 +95,15 @@ See the [documentation][docs] for arguments and [options].
 DITA Open Toolkit is licensed for use under the [Apache License 2.0][apache].
 
 [build]: https://travis-ci.org/dita-ot/dita-ot.svg?branch=develop
-[slack]: http://slack.dita-ot.org/badge.svg
+[slack]: https://img.shields.io/badge/Slack-Join%20us!-%234A154B?style=flat&logo=slack
 [site]: https://www.dita-ot.org/
 [dist]: https://www.dita-ot.org/download
-[support]: https://github.com/dita-ot/dita-ot/blob/develop/.github/SUPPORT.md
+[support]: https://github.com/dita-ot/.github/blob/master/SUPPORT.md
 [java]: http://www.oracle.com/technetwork/java/javase/downloads
 [homebrew]: https://brew.sh
 [docs]: https://www.dita-ot.org/dev/
 [options]: https://www.dita-ot.org/dev/topics/build-using-dita-command.html
 [javadoc]: http://docs.oracle.com/javase/8/docs/technotes/tools/windows/java.html#BABHDABI
 [apache]: http://www.apache.org/licenses/LICENSE-2.0
+[issue]: https://github.com/dita-ot/dita-ot/issues/new/choose
+[contributing]: https://github.com/dita-ot/.github/blob/master/CONTRIBUTING.md

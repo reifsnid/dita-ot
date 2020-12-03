@@ -4,7 +4,7 @@
 //
 // See the accompanying LICENSE file for applicable license.
 
-// block 
+// block
 .codeblock {
   font-family: monospace;
 }
@@ -40,9 +40,14 @@
 }
 
 .syntaxdiagram {
+  border: 1 black solid;
+  color: maroon;
+  display: block;
+  margin-bottom: 6pt;
+  padding: 2pt;
 }
 
-// inline 
+// inline
 .apiname {
 }
 

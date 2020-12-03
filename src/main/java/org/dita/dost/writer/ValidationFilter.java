@@ -17,8 +17,13 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.AttributesImpl;
 
 import javax.xml.namespace.QName;
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 import static javax.xml.XMLConstants.XML_NS_URI;
@@ -74,16 +79,22 @@ public final class ValidationFilter extends AbstractXMLFilter {
     @Override
     public void startElement(final String uri, final String localName, final String qName, final Attributes atts)
             throws SAXException {
-        String d = atts.getValue(ATTRIBUTE_NAME_DOMAINS);
+        final String d = atts.getValue(ATTRIBUTE_NAME_DOMAINS);
         if (d != null) {
             domains.addFirst(StringUtils.getExtProps(d));
         } else {
-            domains.addFirst(domains.peekFirst());
+            final String s = atts.getValue(ATTRIBUTE_NAME_SPECIALIZATIONS);
+            if (s != null) {
+                domains.addFirst(StringUtils.getExtPropsFromSpecializations(s));
+            } else {
+                domains.addFirst(domains.peekFirst());
+            }
         }
         AttributesImpl modified;
         modified = validateLang(atts, null);
         modified = validateId(localName, atts, modified);
-        modified = validateHref(atts, modified);
+        modified = validateReference(ATTRIBUTE_NAME_HREF, atts, modified);
+        modified = validateReference(ATTRIBUTE_NAME_CONREF, atts, modified);
         modified = validateScope(atts, modified);
         modified = processFormatDitamap(atts, modified);
         validateKeys(atts);
@@ -175,34 +186,61 @@ public final class ValidationFilter extends AbstractXMLFilter {
     }
 
     /**
-     * Validate and fix {@code href} attribute for URI validity.
+     * Validate and fix {@code href} or {@code conref} attribute for URI validity.
      *
      * @return modified attributes, {@code null} if there have been no changes
      */
-    private AttributesImpl validateHref(final Attributes atts, final AttributesImpl modified) {
+    private AttributesImpl validateReference(final String attrName, final Attributes atts, final AttributesImpl modified) {
         AttributesImpl res = modified;
-        final String href = atts.getValue(ATTRIBUTE_NAME_HREF);
+        final String href = atts.getValue(attrName);
         if (href != null) {
-            URI uri = null;
             try {
-                uri = new URI(href);
+                final URI uri = new URI(href);
+                final URI abs = URLUtils.stripFragment(currentFile.resolve(uri)).normalize();
+                if (abs.getScheme() != null && abs.getScheme().equals("file")) {
+                    final File p = new File(abs);
+                    try {
+                        final File canFile = p.getCanonicalFile();
+                        final String absPath = p.getAbsolutePath();
+                        final String canPath = canFile.toString();
+                        if (!Objects.equals(absPath, canPath) && Objects.equals(absPath.toLowerCase(), canPath.toLowerCase())) {
+                            switch (processingMode) {
+                                case STRICT:
+                                    throw new RuntimeException(MessageUtils.getMessage("DOTJ083E", abs.toString()).setLocation(locator).toString());
+                                case SKIP:
+                                    logger.error(MessageUtils.getMessage("DOTJ083E", abs.toString()).setLocation(locator).toString() + ", using authored value.");
+                                    break;
+                                case LAX:
+                                    final URI corrected = URLUtils.setFragment(currentFile.relativize(canFile.toURI()), uri.getFragment());
+                                    if (res == null) {
+                                        res = new AttributesImpl(atts);
+                                    }
+                                    res.setValue(res.getIndex(attrName), currentFile.toString());
+                                    logger.error(MessageUtils.getMessage("DOTJ083E", abs.toString()).setLocation(locator).toString() + ", using " + corrected + ".");
+                                    break;
+                            }
+                        }
+                    } catch (IOException e) {
+                        logger.debug(String.format("Failed to resolve real path for %s: %s", p, e.getMessage()), e);
+                    }
+                }
             } catch (final URISyntaxException e) {
                 switch (processingMode) {
                 case STRICT:
-                    throw new RuntimeException(MessageUtils.getMessage("DOTJ054E", ATTRIBUTE_NAME_HREF, href).setLocation(locator) + ": " + e.getMessage(), e);
+                    throw new RuntimeException(MessageUtils.getMessage("DOTJ054E", attrName, href).setLocation(locator) + ": " + e.getMessage(), e);
                 case SKIP:
-                    logger.error(MessageUtils.getMessage("DOTJ054E", ATTRIBUTE_NAME_HREF, href).setLocation(locator) + ", using invalid value.");
+                    logger.error(MessageUtils.getMessage("DOTJ054E", attrName, href).setLocation(locator) + ", using invalid value.");
                     break;
                 case LAX:
                     try {
-                        uri = new URI(URLUtils.clean(href.trim()));
+                        final URI uri = new URI(URLUtils.clean(href.trim()));
                         if (res == null) {
                             res = new AttributesImpl(atts);
                         }
-                        res.setValue(res.getIndex(ATTRIBUTE_NAME_HREF), uri.toASCIIString());
-                        logger.error(MessageUtils.getMessage("DOTJ054E", ATTRIBUTE_NAME_HREF, href).setLocation(locator) + ", using '" + uri.toASCIIString() + "'.");
+                        res.setValue(res.getIndex(attrName), uri.toASCIIString());
+                        logger.error(MessageUtils.getMessage("DOTJ054E", attrName, href).setLocation(locator) + ", using '" + uri.toASCIIString() + "'.");
                     } catch (final URISyntaxException e1) {
-                        logger.error(MessageUtils.getMessage("DOTJ054E", ATTRIBUTE_NAME_HREF, href).setLocation(locator) + ", using invalid value.");
+                        logger.error(MessageUtils.getMessage("DOTJ054E", attrName, href).setLocation(locator) + ", using invalid value.");
                     }
                     break;
                 }
